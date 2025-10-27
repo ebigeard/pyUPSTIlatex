@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyUPSTIlatex"
+version = "0.1.0"
+description = "Utilitaire pour lire, parser et éditer des fichiers UPSTI LaTeX"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["PyYAML>=6.0", "regex>=2023.8.8", "click>=8.0"]
+authors = [{name = "Emmanuel Bigeard", email = "s2i@bigeard.me"}]
+
+[project.scripts]
+pyUPSTIlatex = "pyupstilatex.cli:main"
