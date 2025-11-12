@@ -1,14 +1,18 @@
 import logging
 from typing import Callable, Dict, Optional, Tuple
 
-DEFAULT_SEP1 = "════════════════════════════════════════════════════════════════"
-DEFAULT_SEP2 = "───────────────────────────────────────────────────────"
-DEFAULT_SEP3 = "----------------------------"
+# Séparateurs
+DEFAULT_SEP1 = 88 * "═"
+DEFAULT_SEP2 = 88 * "─"
+DEFAULT_SEP3 = 88 * "-"
+
 # Codes couleurs ANSI
 COLOR_GREEN = "\033[92m"
 COLOR_ORANGE = "\033[38;5;214m"
 COLOR_LIGHT_ORANGE = "\033[38;2;255;220;150m"
 COLOR_RED = "\033[91m"
+COLOR_DARK_GRAY = "\033[90m"
+COLOR_LIGHT_BLUE = "\033[94m"
 COLOR_LIGHT_GREEN = "\033[38;2;200;255;200m"
 COLOR_RESET = "\033[0m"
 
@@ -20,8 +24,10 @@ def _annoted_text(text: str, flag: str) -> str:
         return f"{COLOR_GREEN}✓{COLOR_RESET} : {text}"
     elif flag == "warning":
         return f"{COLOR_ORANGE}WARNING{COLOR_RESET} : {text}"
-    elif flag == "error":
+    elif flag in ["error", "fatal_error"]:
         return f"{COLOR_RED}ERREUR{COLOR_RESET} : {text}"
+    elif flag == "info":
+        return f"{COLOR_LIGHT_BLUE}INFO{COLOR_RESET} : {text}"
     return text
 
 
@@ -61,21 +67,6 @@ def _fmt_conclusion(t: str):
     return (f"│\n└─> {t}", logging.INFO)
 
 
-def _fmt_success(t: str):
-    return (f"  {COLOR_GREEN}✓{COLOR_RESET} {t}", logging.INFO)
-
-
-def _fmt_warning(t: str):
-    return (f"  {COLOR_ORANGE}WARNING{COLOR_RESET} => {t}", logging.WARNING)
-
-
-def _fmt_error(t: str):
-    return (
-        f"  {COLOR_RED}ERREUR{COLOR_RESET} => {t}",
-        logging.ERROR,
-    )
-
-
 def _fmt_empty(t: str):
     return ("", logging.INFO)
 
@@ -91,9 +82,6 @@ DEFAULT_FORMATTERS: Dict[str, Formatter] = {
     "resultat": _fmt_resultat,
     "resultat_item": _fmt_resultat_item,
     "conclusion": _fmt_conclusion,
-    "success": _fmt_success,
-    "warning": _fmt_warning,
-    "error": _fmt_error,
     "saut": _fmt_empty,
     "separateur1": lambda t: (DEFAULT_SEP1, logging.INFO),
     "separateur2": lambda t: (DEFAULT_SEP2, logging.INFO),
@@ -204,15 +192,6 @@ class MessageHandler:
     def conclusion(self, texte, verbose=None):
         self.msg("conclusion", texte, verbose)
 
-    def success(self, texte, verbose=None):
-        self.msg("success", texte, verbose)
-
-    def warning(self, texte, verbose=None):
-        self.msg("warning", texte, verbose)
-
-    def error(self, texte):
-        self.msg("error", texte)
-
     def saut(self):
         self.msg("saut", "")
 
@@ -224,49 +203,3 @@ class MessageHandler:
 
     def separateur3(self):
         self.msg("separateur3", "")
-
-    def check_file(
-        self, doc, mode: str = "read", path: Optional[str] = None, emit: bool = True
-    ) -> bool:
-        """Vérifie l'état d'un document et émet (ou non) les messages appropriés.
-
-        Si `emit` est False la fonction ne produit pas d'affichage et renvoie seulement
-        True/False suivant si l'exécution doit continuer.
-
-        Retourne True si la commande peut continuer, False si elle doit s'arrêter.
-
-        - si uniquement des warnings : affiche les warnings et retourne True
-        - si erreurs bloquantes : affiche les erreurs (si emit=True) et retourne False
-        """
-        ok, errors = doc.is_file_ok(mode)
-        if ok:
-            return True
-
-        # Si on ne doit pas émettre de messages, renvoyer l'état sans affichage
-        if not emit:
-            return False
-
-        # Si on a des erreurs, vérifier s'il s'agit uniquement de warnings
-        if errors:
-            has_warning = False
-            for error in errors:
-                if error[1] == "warning":
-                    self.warning(f"{error[0]}")
-                    has_warning = True
-
-            # Si au moins un warning, on continue
-            if has_warning:
-                return True
-
-            # Sinon il s'agit d'erreurs bloquantes : afficher et arrêter
-            # Afficher chaque message d'erreur individuellement en utilisant
-            # les helpers correspondant au flag pour obtenir le bon format
-            for error in errors:
-                if error[1] == "error":
-                    self.error(f"{error[0]}")
-                elif error[1] == "warning":
-                    self.warning(f"{error[0]}")
-                else:
-                    self.info(f"{error[0]}", flag=error[1])
-            self.separateur1()
-            return False

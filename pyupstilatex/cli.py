@@ -2,9 +2,9 @@ import click
 
 from .document import UPSTILatexDocument
 from .logger import (
+    COLOR_DARK_GRAY,
     COLOR_GREEN,
     COLOR_LIGHT_GREEN,
-    COLOR_LIGHT_ORANGE,
     COLOR_ORANGE,
     COLOR_RED,
     COLOR_RESET,
@@ -42,14 +42,12 @@ def version(ctx, path):
     # Instanciation du document
     doc = UPSTILatexDocument.from_path(path)
 
-    # Vérification du fichier
-    if not msg.check_file(doc, mode="read", path=path, emit=False):
-        # Récupérer les erreurs et les afficher comme 'resultat' pour garder le
-        # format attendu par l'utilisateur
-        _ok, file_errors = doc.is_file_ok("read")
+    # Vérification du fichier via UPSTILatexDocument.check_file (sans émission auto)
+    ok, file_errors = doc.check_file("read")
+    if not ok:
+        # Afficher les erreurs au format 'resultat' comme auparavant
         for err in file_errors:
             msg.resultat(f"{err[0]}", flag=err[1])
-
         msg.separateur1()
         return ctx.exit(1)
 
@@ -74,18 +72,17 @@ def infos(ctx, path):
     # Instanciation du document
     doc = UPSTILatexDocument.from_path(path)
 
-    # Vérification du fichier
-    if not msg.check_file(doc, mode="read", path=path):
-        return ctx.exit(1)
+    # Vérification du fichier (lecture)
+    fichier_valide, errors = doc.check_file("read")
 
     # Récupération des métadonnées selon la version
-    metadata, errors = doc.get_metadata()
+    if fichier_valide:
+        metadata, meta_errors = doc.get_metadata()
+        errors += meta_errors
 
-    # On détecte si on a rencontré une erreur
+    # On détecte si on a rencontré une erreur fatale
     for error in errors:
-        # Si on détecte une erreur, on stoppe ici, si c'est un warning
-        # on affichera plus tard
-        if error[1] == "error":
+        if error[1] == "fatal_error":
             msg.info(f"{error[0]}", flag=error[1])
             msg.separateur1()
             return ctx.exit(1)
@@ -93,28 +90,41 @@ def infos(ctx, path):
     if metadata:
         # Préparer la liste des éléments affichables et calculer la largeur max
         items = []
-        for m in metadata.values():
-            # TOTEST: on affiche tout pour l'instant
-            # if show_in_infos == "if_true" and m.get("raw_value") is False:
-            #     continue
-            label = m.get("label")
+        for meta in metadata.values():
+            label = meta.get("label")
             valeur = (
-                m.get("valeur")
-                if m.get("valeur") is not None
-                else m.get("raw_value") or ""
+                meta.get("valeur")
+                if meta.get("valeur") is not None
+                else meta.get("raw_value", "")
             )
-            type_meta = m.get("type_meta", "")
-            items.append((label, valeur, type_meta))
+            initial_value = meta.get("initial_value", "")
 
-        max_label_len = max((len(lbl) for lbl, _, _ in items), default=0)
+            # type_meta peut être de la forme "default" ou "default:wrong_type"
+            tm_raw = meta.get("type_meta") or ""
+            tm_parts = tm_raw.split(":", 1)
+            main_type = tm_parts[0] if tm_parts and tm_parts[0] else ""
+            cause_type = tm_parts[1] if len(tm_parts) > 1 else ""
+            items.append((label, valeur, main_type, cause_type, initial_value))
+
+        max_label_len = max((len(lbl) for lbl, _, _, _, _ in items), default=0)
 
         # Afficher les lignes avec alignement des ':'
-        for label, valeur, type_meta in items:
+        # Vérifier l'affichage en fonction des nouveaux mots clés
+        for label, valeur, type_meta, cause_meta, initial_value in items:
             # colorer le label selon s'il s'agit d'une valeur par défaut
             if type_meta == "default":
-                separateur_colored = f"{COLOR_ORANGE}=>{COLOR_RESET}"
+                separateur_colored = f"{COLOR_DARK_GRAY}=>{COLOR_RESET}"
+                if cause_meta:
+                    separateur_colored = f"{COLOR_ORANGE}=>{COLOR_RESET}"
+                    valeur = (
+                        f"{COLOR_ORANGE}{valeur} (avant correction: "
+                        f"'{initial_value}'){COLOR_RESET}"
+                    )
             elif type_meta == "deducted":
                 separateur_colored = f"{COLOR_LIGHT_GREEN}=>{COLOR_RESET}"
+            elif type_meta == "ignored":
+                separateur_colored = f"{COLOR_RED}=>{COLOR_RESET}"
+                valeur = f"{COLOR_RED}ignoré: '{initial_value}'{COLOR_RESET}"
             else:
                 separateur_colored = f"{COLOR_GREEN}=>{COLOR_RESET}"
 
@@ -123,18 +133,22 @@ def infos(ctx, path):
             padding = " " * pad
             msg.info(f"{padding}{label} {separateur_colored} {valeur}")
 
-    msg.separateur2()
-    msg.info(
-        f"{COLOR_GREEN}=>{COLOR_RESET} valeur définie dans le fichier tex, "
-        f"{COLOR_LIGHT_GREEN}=>{COLOR_RESET} valeur déduite, "
-        f"{COLOR_ORANGE}=>{COLOR_RESET} valeur par défaut"
-    )
-
+    # Erreurs rencontrées
     if errors:
-        msg.separateur1()
+        msg.separateur2()
         for error in errors:
             msg.info(f"{error[0]}", flag=error[1])
 
+    # Légende des symboles
+    msg.separateur1()
+    msg.info(
+        f"{COLOR_GREEN}=>{COLOR_RESET} valeur définie dans le fichier tex, "
+        f"{COLOR_LIGHT_GREEN}=>{COLOR_RESET} valeur déduite, "
+        f"{COLOR_DARK_GRAY}=>{COLOR_RESET} valeur par défaut"
+    )
+    msg.info(
+        f"{COLOR_ORANGE}=>{COLOR_RESET} problème, " f"{COLOR_RED}=>{COLOR_RESET} erreur"
+    )
     msg.separateur1()
 
 

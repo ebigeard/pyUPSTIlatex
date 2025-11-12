@@ -8,9 +8,13 @@ import yaml
 
 from .exceptions import DocumentParseError
 from .filesystem import check_path_readable, check_path_writable
-from .parsers import parse_metadonnees_tex, parse_metadonnees_yaml
+from .parsers import (
+    parse_metadonnees_tex,
+    parse_metadonnees_yaml,
+    parse_package_imports,
+)
 from .storage import FileSystemStorage, StorageProtocol
-from .utils import check_type_from_str, read_json_config
+from .utils import check_types, read_json_config
 
 
 @dataclass
@@ -43,26 +47,27 @@ class UPSTILatexDocument:
                 # Refuse explicitement tout fichier qui n'est pas un .tex ou un .ltx
                 if p.suffix.lower() not in [".tex", ".ltx"]:
                     self._file_readable = False
-                    self._file_readable_reason = "extension non-tex/ltx"
-                    self._file_readable_flag = "error"
-                    # Écriture : si le fichier existe on indique l'état, sinon on signale inexistant
+                    self._file_readable_reason = "Le fichier n'est pas un fichier tex"
+                    self._file_readable_flag = "fatal_error"
+                    # Écriture : si le fichier existe on indique l'état,
+                    # sinon on signale inexistant
                     if self._file_exists:
                         ok_w, reason_w, _ = check_path_writable(self.source)
                         self._file_writable = bool(ok_w)
                         self._file_writable_reason = reason_w
                     else:
                         self._file_writable = False
-                        self._file_writable_reason = "fichier inexistant"
+                        self._file_writable_reason = "Fichier inexistant"
                 else:
-                    # Petit test heuristique pour repérer les binaires (NUL ou trop d'octets non imprimables)
+                    # Petit test heuristique pour repérer les binaires
                     try:
                         with p.open("rb") as f:
                             sample = f.read(4096)
                     except Exception as e:
-                        # Impossible d'ouvrir en binaire -> on considèrera comme illisible
+                        # Impossible d'ouvrir en binaire -> on considèrera illisible
                         self._file_readable = False
-                        self._file_readable_reason = f"lecture binaire impossible: {e}"
-                        self._file_readable_flag = "error"
+                        self._file_readable_reason = f"Lecture binaire impossible: {e}"
+                        self._file_readable_flag = "fatal_error"
                         self._file_writable = None
                         self._file_writable_reason = None
                     else:
@@ -82,8 +87,8 @@ class UPSTILatexDocument:
 
                         if is_binary:
                             self._file_readable = False
-                            self._file_readable_reason = "fichier binaire détecté"
-                            self._file_readable_flag = "error"
+                            self._file_readable_reason = "Fichier binaire détecté"
+                            self._file_readable_flag = "fatal_error"
                             # Écriture : on laisse l'état vérifié si possible
                             if self._file_exists:
                                 ok_w, reason_w, _ = check_path_writable(self.source)
@@ -91,9 +96,9 @@ class UPSTILatexDocument:
                                 self._file_writable_reason = reason_w
                             else:
                                 self._file_writable = False
-                                self._file_writable_reason = "fichier inexistant"
+                                self._file_writable_reason = "Fichier inexistant"
                         else:
-                            # Texte plausible -> faire la vérification d'encodage habituelle
+                            # Texte plausible -> faire la vérification d'encodage
                             ok_r, reason_r, flag_r = check_path_readable(self.source)
                             self._file_readable = bool(ok_r)
                             self._file_readable_reason = reason_r
@@ -105,7 +110,7 @@ class UPSTILatexDocument:
                             self._file_writable, self._file_writable_reason, _ = (
                                 check_path_writable(self.source)
                                 if self._file_exists
-                                else (False, "fichier inexistant", "error")
+                                else (False, "Fichier inexistant", "fatal_error")
                             )
 
             # Cas 2 : stockage distant — on ne peut que tester par lecture réelle
@@ -119,13 +124,13 @@ class UPSTILatexDocument:
                 except UnicodeDecodeError as e:
                     self._file_exists = True
                     self._file_readable = False
-                    self._file_readable_reason = f"encodage illisible: {e}"
-                    self._file_readable_flag = "error"
+                    self._file_readable_reason = f"Encodage illisible: {e}"
+                    self._file_readable_flag = "fatal_error"
                 except Exception as e:
                     self._file_exists = False
                     self._file_readable = False
-                    self._file_readable_reason = f"lecture impossible: {e}"
-                    self._file_readable_flag = "error"
+                    self._file_readable_reason = f"Lecture impossible: {e}"
+                    self._file_readable_flag = "fatal_error"
 
                 # Écriture non testable pour les storages distants
                 self._file_writable = None
@@ -147,18 +152,21 @@ class UPSTILatexDocument:
                     )
                 if not self._file_readable:
                     raise DocumentParseError(
-                        f"Fichier illisible: {self.source} — {self._file_readable_reason or 'raison inconnue'}"
+                        f"Fichier illisible: {self.source} — "
+                        f"{self._file_readable_reason or 'raison inconnue'}"
                     )
                 if self.require_writable:
                     if self._file_writable is True:
                         pass
                     elif self._file_writable is False:
                         raise DocumentParseError(
-                            f"Fichier non ouvrable en écriture: {self.source} — {self._file_writable_reason or 'raison inconnue'}"
+                            f"Fichier non ouvrable en écriture: {self.source} "
+                            f"— {self._file_writable_reason or 'raison inconnue'}"
                         )
                     else:
                         raise DocumentParseError(
-                            f"Capacité d'écriture non vérifiable pour ce stockage: {self.source}"
+                            f"Capacité d'écriture non vérifiable pour ce stockage: "
+                            f"{self.source}"
                         )
         except Exception:
             # Ne bloque jamais l’instanciation en cas d’erreur inattendue
@@ -201,6 +209,79 @@ class UPSTILatexDocument:
             return self._metadata
         return self.get_metadata()[0]
 
+    def check_file(self, mode: str = "read") -> tuple[bool, List[List[str]]]:
+        """Vérifie rapidement l'état du fichier selon le mode demandé.
+
+        Retourne (ok, raison, flag) où:
+        - ok: True si tout est OK pour le mode demandé
+        - liste de messages d'erreurs (msg, flag).
+
+        Modes supportés:
+        - 'read'  : existence + readable (UTF-8) ; si fallback latin-1 => warning
+        - 'write' : existence + writable (test non destructif pour FileSystemStorage)
+        - 'exists': existence seulement
+        """
+        mode = (mode or "read").lower()
+        if mode not in ("read", "write", "exists"):
+            return False, [
+                ["Mode doit être 'read', 'write' ou 'exists'.", "fatal_error"]
+            ]
+
+        # Existence
+        if not self._file_exists:
+            return False, [["Fichier introuvable", "fatal_error"]]
+
+        if mode == "exists":
+            return True, []
+
+        # Mode lecture
+        if mode == "read":
+            # readable_flag may be 'warning' when latin-1 fallback used
+            if self._file_readable:
+                if self._file_readable_flag == "warning":
+                    return (
+                        True,
+                        [
+                            [
+                                self._file_readable_reason
+                                or "Fichier lu avec fallback d'encodage",
+                                "warning",
+                            ]
+                        ],
+                    )
+                return True, []
+            return False, [
+                [
+                    self._file_readable_reason or "Impossible de lire",
+                    self._file_readable_flag or "error",
+                ]
+            ]
+
+        # Mode écriture
+        if self._file_writable is True:
+            return True, []
+        if self._file_writable is False:
+            return (
+                False,
+                [
+                    [
+                        self._file_writable_reason or "Impossible d'ouvrir en écriture",
+                        "fatal_error",
+                    ]
+                ],
+            )
+        # None => inconnu pour les storages non locaux
+        return (
+            False,
+            [
+                [
+                    self._file_writable_reason
+                    or "Capacité d'écriture non vérifiable pour ce stockage",
+                    "warning",
+                ]
+            ],
+        )
+
     def get_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Extrait les métadonnées depuis le front matter YAML.
 
@@ -221,8 +302,9 @@ class UPSTILatexDocument:
             data, parsing_errors = parse_metadonnees_tex(self.read()) or {}
             version_warning = [
                 [
-                    "Ce document utilise une ancienne version de UPSTI_Document (v1). Si vous souhaitez mettre à jour UPSTI_Document, exécutez : pyupstilatex upgrade",
-                    "warning",
+                    "Ce document utilise une ancienne version de UPSTI_Document (v1). "
+                    "Mettre à jour UPSTI_Document: pyupstilatex upgrade",
+                    "info",
                 ]
             ]
             return data, version_warning + parsing_errors
@@ -235,14 +317,15 @@ class UPSTILatexDocument:
         if self._metadata is not None:
             return self._metadata, []
 
-        # On reprend la version détectée, et suivant les cas, on exécute le parser qui va bien
+        # On reprend la version détectée, et on exécute le parser qui correspond
         version = self._version or self.version
         if version == "EPB_Document":
             return (
                 None,
                 [
                     [
-                        "Les fichiers EPB_Document ne sont pas pris en charge par pyUPSTIlatex.",
+                        "Les fichiers EPB_Document ne sont pas pris en charge "
+                        "par pyUPSTIlatex.",
                         "error",
                     ],
                 ],
@@ -271,19 +354,23 @@ class UPSTILatexDocument:
         )
 
     def get_version(self) -> tuple[Optional[str], List[List[str]]]:
-        """Détecte la version du document UPSTI/EPB et retourne (version, message, flag).
+        """Détecte la version du document UPSTI/EPB et retourne (version, erreurs)."""
 
-        Renvoie un tuple (version, message, flag) où `flag` est l'un de:
-        - "plain"  : succès standard
-        - "warning": version non reconnue
-        - "error"  : erreur de lecture
-        """
         if self._version is not None:
             # Version déjà détectée (cache)
             return self._version, []
 
         try:
             content = self.read()
+            packages = parse_package_imports(content)
+
+            if "UPSTI_Document" in packages:
+                self._version = "UPSTI_Document_v1"
+                return self._version, []
+            if "EPB_Document" in packages:
+                self._version = "EPB_Document"
+                return self._version, []
+
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
@@ -302,86 +389,8 @@ class UPSTILatexDocument:
             if stripped.startswith("%"):
                 continue
 
-            # UPSTI_Document v1
-            if "\\newcommand{\\UPSTIidTypeDocument}" in stripped:
-                self._version = "UPSTI_Document_v1"
-                return self._version, []
-
-            # EPB_Document
-            if "\\newcommand{\\EPBIdTypeDocument}" in stripped:
-                self._version = "EPB_Document"
-                return self._version, []
-
         self._version = None
         return None, [["Version non reconnue", "warning"]]
-
-    def is_file_ok(self, mode: str = "read") -> tuple[bool, List[List[str]]]:
-        """Vérifie rapidement l'état du fichier selon le mode demandé.
-
-        Retourne (ok, raison, flag) où:
-        - ok: True si tout est OK pour le mode demandé
-        - raison: None si ok, sinon message court expliquant le problème
-        - flag: None si ok, sinon 'warning' ou 'error'
-
-        Modes supportés:
-        - 'read'  : existence + lecture (UTF-8) ; si fallback latin-1 => warning
-        - 'write' : existence + capacité d'écriture (test non destructif pour FileSystemStorage)
-        - 'exists': existence seulement
-        """
-        mode = (mode or "read").lower()
-        if mode not in ("read", "write", "exists"):
-            raise ValueError("mode must be one of 'read', 'write' or 'exists'")
-
-        # existence
-        if not self._file_exists:
-            return False, [["Fichier introuvable", "error"]]
-
-        if mode == "exists":
-            return True, []
-
-        if mode == "read":
-            # readable_flag may be 'warning' when latin-1 fallback used
-            if self._file_readable:
-                if self._file_readable_flag == "warning":
-                    return (
-                        False,
-                        [
-                            [
-                                self._file_readable_reason
-                                or "fichier lu avec fallback d'encodage",
-                                "warning",
-                            ]
-                        ],
-                    )
-                return True, []
-            return False, [
-                [self._file_readable_reason or "impossible de lire", "error"]
-            ]
-
-        # mode == 'write'
-        if self._file_writable is True:
-            return True, []
-        if self._file_writable is False:
-            return (
-                False,
-                [
-                    [
-                        self._file_writable_reason or "impossible d'ouvrir en écriture",
-                        "error",
-                    ]
-                ],
-            )
-        # None => inconnu pour les storages non locaux
-        return (
-            False,
-            [
-                [
-                    self._file_writable_reason
-                    or "Capacité d'écriture non vérifiable pour ce stockage",
-                    "error",
-                ]
-            ],
-        )
 
     def _format_metadata(
         self, data: Dict, *, source: str
@@ -390,78 +399,15 @@ class UPSTILatexDocument:
 
         Retourne (dict Python, liste de messages d'erreurs (msg, flag)).
         """
+        if data is None:
+            data = {}
+
         meta_ok: Dict[str, Dict] = {}
         errors: List[Tuple[str, str]] = []
         cfg = read_json_config()
         cfg_meta = cfg.get("metadonnee") or {}
 
-        # On vérifie s'il y a des champs définis par mégarde
-        extra_keys = set(data.keys()) - set(cfg_meta.keys())
-        for key in extra_keys:
-            errors.append(
-                [
-                    f"Clé de métadonnée inconnue dans le fichier tex : {key}",
-                    'warning',
-                ]
-            )
-
-        # Vérification des types de données forcées
-        for key, value in data.items():
-            force_type = (
-                cfg_meta.get(key, {}).get("parametres", {}).get("force_type", {})
-            )
-            if force_type:
-                type_to_check = force_type.get("type")
-
-                if check_type_from_str(value, type_to_check):
-                    if type_to_check == "dict":
-                        if not set(value.keys()).issubset(
-                            set(force_type.get("dict_keys", []))
-                        ):
-                            errors.append(
-                                [
-                                    f"Il y a des clés non autorisées pour '{key}' : {set(value.keys()) - set(force_type.get('dict_keys', []))}.",
-                                    'warning',
-                                ]
-                            )
-                    if type_to_check == "list" and force_type.get("in", ""):
-                        valid_values_dict = cfg.get(force_type.get("in", ""), {})
-                        if not set(value).issubset(set(valid_values_dict)):
-                            errors.append(
-                                [
-                                    f"Il y a des valeurs non autorisées pour '{key}' : {set(value) - set(valid_values_dict)}.",
-                                    'warning',
-                                ]
-                            )
-
-                    continue
-
-                errors.append(
-                    [
-                        f"'{key}' devrait être de type '{force_type.get('type')}'.",
-                        'warning',
-                    ]
-                )
-
-        # Préparation des champs déclarés et par défaut
-        for key, m in cfg_meta.items():
-            params = m.get("parametres", {})
-            if key not in data and not params.get("default"):
-                continue
-
-            meta_ok[key] = {
-                "label": m.get("label", "Erreur"),
-                "description": m.get("description", "Erreur"),
-                "valeur": "",
-                "affichage": "",
-                "initiales": "",
-                "raw_value": (data or {}).get(key, ""),
-                "parametres": params,
-            }
-            if params.get("default") and key not in data:
-                meta_ok[key]["type_meta"] = "default"
-
-        # Valeurs par défaut globales
+        # On prépare toutes les valeurs par défaut globales
         epoch = int(time.time())
         prefixe_id = os.getenv("META_DEFAULT_ID_DOCUMENT_PREFIXE", "EB")
         separateur_id = os.getenv("META_DEFAULT_SEPARATEUR_ID_DOCUMENT", ":")
@@ -477,101 +423,305 @@ class UPSTILatexDocument:
             "auteur": os.getenv("META_DEFAULT_AUTEUR", "Emmanuel BIGEARD"),
         }
 
-        # On nettoie les valeurs existantes
-        for key, m in meta_ok.items():
-            params = m.get("parametres", {})
-
-            # Cas des boolééens
-            if params.get("clean") == "boolean":
-                raw = m.get("raw_value", "")
-                if raw == "":
-                    continue  # on laisse vide
-                val = str(raw).strip().lower()
-                m["raw_value"] = (
-                    raw is True or raw == 1 or val in {"true", "1", "yes", "on"}
-                )
-
-            # Cas des valeurs custom
-            custom_decl_str = params.get("custom_declaration")
-            if custom_decl_str:
-                raw = m.get("raw_value", "")
-                if isinstance(raw, dict):
-                    try:
-                        decl_dict = yaml.safe_load(custom_decl_str)
-                        if not isinstance(decl_dict, dict):
-                            errors.append(
-                                [
-                                    f"custom_declaration invalide pour {key} dans pyUPSTIlatex.json.",
-                                    'error',
-                                ]
-                            )
-                            m["raw_value"] = ""
-                            m["type_meta"] = "default"
-
-                        # Comparer les clés
-                        if not (set(raw.keys()) == set(decl_dict.keys())):
-                            errors.append(
-                                [
-                                    f"Dictionnaire custom declaration invalide pour {key}. "
-                                    "On va utiliser la valeur par défaut.",
-                                    'warning',
-                                ]
-                            )
-                            m["raw_value"] = ""
-                            m["type_meta"] = "default"
-
-                    except yaml.YAMLError:
-                        errors.append(
-                            [
-                                f"custom_declaration invalide pour {key} dans pyUPSTIlatex.json.",
-                                'error',
-                            ]
-                        )
-                        m["type_meta"] = "default"
-
-            # Cas des valeurs avec des relations de clé
-            if params.get("join_key", ""):
-                raw = m.get("raw_value", "")
-                if (
-                    not isinstance(raw, dict)
-                    and raw != ""
-                    and raw not in (cfg.get(key) or {})
-                    and not params.get("custom_can_be_not_related", "")
-                ):
-                    errors.append(
-                        [
-                            f"Valeur inconnue pour {key}: '{raw}'. "
-                            "On va utiliser la valeur par défaut.",
-                            'warning',
-                        ]
-                    )
-                    m["raw_value"] = ""
-                    m["type_meta"] = "default"
-
-        # Application des valeurs par défaut (pour les champs required mais vides)
-        for key, md in meta_ok.items():
-            if "type_meta" not in md:
+        # Préparation des champs déclarés et par défaut
+        for key, meta in cfg_meta.items():
+            params = meta.get("parametres", {})
+            if key not in data and not params.get("default"):
                 continue
 
-            default_mode = md.get("parametres", {}).get("default", "")
+            meta_ok[key] = {
+                "label": meta.get("label", "Erreur"),
+                "description": meta.get("description", "Erreur"),
+                "valeur": "",
+                "affichage": "",
+                "initiales": "",
+                "raw_value": data.get(key, "") if data else "",
+                "initial_value": data.get(key, "") if data else "",
+                "parametres": params,
+                **(
+                    {"type_meta": "default"}
+                    if params.get("default") and key not in data
+                    else {}
+                ),
+            }
+
+        # 1. On vérifie s'il y a des champs surnuméraires définis par mégarde
+        for key in data:
+            if key not in cfg_meta:
+                errors.append(
+                    [
+                        f"Clé de métadonnée inconnue dans le fichier tex: '{key}'.",
+                        "warning",
+                    ]
+                )
+
+        # 2. On verifie la correspondance des types de données
+        for key, meta in meta_ok.items():
+            params = meta.get("parametres", {})
+            types_to_check = params.get("accepted_types", [])
+            raw_value = meta.get("raw_value", "")
+
+            if check_types(raw_value, types_to_check):
+                continue
+
+            use_default = bool(params.get("default"))
+            self._handle_invalid_meta(
+                meta,
+                key,
+                f"'{key}' devrait être de type {types_to_check}.",
+                use_default,
+                errors,
+                suffix="wrong_type",
+            )
+
+        # 3. On vérifie les contraintes spécifiques à certains champs
+        for key, meta in meta_ok.items():
+            params = meta.get("parametres", {})
+            rules = params.get("validate_rules", {})
+            raw_value = meta.get("raw_value", {})
+
+            if not rules:
+                continue
+
+            use_default = bool(params.get("default"))
+
+            # Règle : dict_keys - les clés doivent être dans une liste définie
+            if "dict_keys" in rules and isinstance(raw_value, dict):
+                allowed_keys = set(rules["dict_keys"])
+                actual_keys = set(raw_value.keys())
+                invalid_keys = actual_keys - allowed_keys
+                if invalid_keys:
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"Clé(s) non autorisée(s) pour '{key}': {list(invalid_keys)}.",
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+            # Règle : keys_in - les clés doivent appartenir aux clés d'un modèle
+            if "keys_in" in rules and isinstance(raw_value, dict):
+                path = str(rules["keys_in"]).split(".")
+                source = cfg
+                for p in path:
+                    source = source.get(p, {})
+                allowed_keys = set(source.keys())
+                actual_keys = set(raw_value.keys())
+
+                invalid_keys = actual_keys - allowed_keys
+                if invalid_keys:
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"Clé(s) non autorisée(s) pour '{key}': {list(invalid_keys)}.",
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+            # Règle : value_type - les valeurs des différentes clés doivent être typées
+            if "value_type" in rules and isinstance(raw_value, dict):
+                types_to_check = rules["value_type"]
+                if not isinstance(types_to_check, list):
+                    types_to_check = [types_to_check]
+
+                invalid_values = [
+                    v for v in raw_value.values() if not check_types(v, types_to_check)
+                ]
+
+                if invalid_values:
+                    reason = (
+                        f"Les valeurs de '{key}' doivent être de type "
+                        f"{types_to_check}."
+                    )
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        reason,
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+            # Règle : extended_types - vérifie les types d'un dictionnaire hétérogène
+            if "extended_types" in rules and isinstance(raw_value, dict):
+                type_schema = rules["extended_types"]
+                for sub_key, expected_type in type_schema.items():
+                    if sub_key in raw_value:
+                        sub_value = raw_value[sub_key]
+                        if not check_types(sub_value, [expected_type]):
+                            self._handle_invalid_meta(
+                                meta,
+                                key,
+                                f"La clé '{sub_key}' dans '{key}' a un type invalide. "
+                                f"Attendu: {expected_type}, "
+                                f"Reçu: {type(sub_value).__name__}.",
+                                use_default,
+                                errors,
+                                suffix="validate_rules",
+                            )
+
+            # Règle : sum - valeurs numériques doivent sommer à une valeur donnée
+            if "sum" in rules and isinstance(raw_value, dict):
+                total = sum(int(v) for v in raw_value.values())
+                expected_total = rules["sum"]
+                if total != expected_total:
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"Le total des valeurs de '{key}' doit faire {expected_total}.",
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+            # Règle : valeur_max - valeurs doivent être inférieures à une valeur donnée
+            if "valeur_max" in rules and isinstance(raw_value, int):
+                max_value = rules["valeur_max"]
+                if raw_value > max_value:
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"'{key}' doit être inférieur ou égal à : {max_value}.",
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+            # Règle : in - les valeurs doivent être dans une liste définie
+            if "in" in rules and isinstance(raw_value, list):
+                path = str(rules["in"]).split(".")
+                source = cfg.get(path[0], {})
+
+                if len(path) == 1:
+                    invalid = [v for v in raw_value if v not in source]
+                elif len(path) == 2:
+                    sub_key = path[1]
+                    valid_values = {
+                        item.get(sub_key)
+                        for item in source.values()
+                        if isinstance(item, dict)
+                    }
+                    invalid = [v for v in raw_value if v not in valid_values]
+                else:
+                    invalid = raw_value  # fallback total
+
+                if invalid:
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"Valeur(s) non autorisée(s) pour '{key}': {invalid}.",
+                        use_default,
+                        errors,
+                        suffix="validate_rules",
+                    )
+
+        # 4. Gestion des valeurs custom sous forme de dict.
+        for key, meta in meta_ok.items():
+            params = meta.get("parametres", {})
+            custom_declaration = params.get("custom_declaration", {})
+
+            if custom_declaration:
+                raw_value = meta.get("raw_value", {})
+
+                if isinstance(raw_value, dict):
+                    use_default = bool(params.get("default"))
+
+                    try:
+                        custom_declaration_parsed = yaml.safe_load(custom_declaration)
+
+                        # a. Vérifier que les clés sont identiques
+                        expected_keys = set(custom_declaration_parsed.keys())
+                        actual_keys = set(raw_value.keys())
+
+                        if actual_keys != expected_keys:
+                            self._handle_invalid_meta(
+                                meta,
+                                key,
+                                f"Les clés pour '{key}' sont invalides. "
+                                f"(attendu: {list(expected_keys)})",
+                                use_default,
+                                errors,
+                                suffix="validate_rules",
+                            )
+                        else:
+                            # b. Vérifier le type de chaque valeur
+                            type_errors = []
+                            for k, expected_type in custom_declaration_parsed.items():
+                                actual_value = raw_value.get(k)
+                                if not check_types(actual_value, [expected_type]):
+                                    type_errors.append(
+                                        f"'{k}' (attendu: {expected_type}, "
+                                        f"obtenu: {type(actual_value).__name__})"
+                                    )
+
+                            if type_errors:
+                                self._handle_invalid_meta(
+                                    meta,
+                                    key,
+                                    f"Type(s) invalide(s) pour '{key}': "
+                                    f"{', '.join(type_errors)}.",
+                                    use_default,
+                                    errors,
+                                    suffix="validate_rules",
+                                )
+
+                    except yaml.YAMLError:
+                        self._handle_invalid_meta(
+                            meta,
+                            key,
+                            f"'custom_declaration' invalide pour '{key}' "
+                            "dans pyUPSTIlatex.json.",
+                            use_default,
+                            errors,
+                            suffix="bad_custom_declaration_definition",
+                        )
+
+        # 5. Gestion des valeurs avec des relations de clé
+        for key, meta in meta_ok.items():
+            params = meta.get("parametres", {})
+            join_key = params.get("join_key", "")
+
+            if join_key:
+                raw_value = meta.get("raw_value", "")
+                if (
+                    not isinstance(raw_value, dict)
+                    and raw_value != ""
+                    and raw_value not in (cfg.get(key) or {})
+                    and not params.get("custom_can_be_not_related", "")
+                ):
+                    use_default = bool(params.get("default"))
+                    self._handle_invalid_meta(
+                        meta,
+                        key,
+                        f"Valeur inconnue pour '{key}': '{raw_value}'.",
+                        use_default,
+                        errors,
+                        suffix="bad_key",
+                    )
+
+        # 6. Application des valeurs par défaut (pour les champs required mais vides)
+        for key, meta in meta_ok.items():
+            if "type_meta" not in meta:
+                continue
+
+            default_mode = meta.get("parametres", {}).get("default", "")
             if default_mode == ".env":
-                md["raw_value"] = valeurs_par_defaut.get(key, "")
+                meta["raw_value"] = valeurs_par_defaut.get(key, "")
 
             elif default_mode == "calc":
-                md["raw_value"] = valeurs_par_defaut.get(key, "")
-
-            elif default_mode == "False":
-                md["raw_value"] = bool(md.get("raw_value"))
+                meta["raw_value"] = valeurs_par_defaut.get(key, "")
 
             elif default_mode == "batch_pedagogie":
                 # Gestion groupée
-                if not data.get("classe") and not meta_ok["classe"]["raw_value"]:
+                if not meta_ok["classe"].get("raw_value", ""):
                     meta_ok["classe"]["raw_value"] = valeurs_par_defaut["classe"]
 
-                if not data.get("matiere") and not meta_ok["matiere"]["raw_value"]:
+                if not meta_ok["matiere"].get("raw_value", ""):
                     meta_ok["matiere"]["raw_value"] = valeurs_par_defaut["matiere"]
 
-                if not data.get("filiere") and not meta_ok["filiere"]["raw_value"]:
+                if not meta_ok["filiere"].get("raw_value", ""):
                     cfg_classe = cfg.get("classe") or {}
                     classe_used_for_filiere = meta_ok["classe"]["raw_value"]
                     classe_predefinie = cfg_classe.get(classe_used_for_filiere, {})
@@ -580,13 +730,16 @@ class UPSTILatexDocument:
                     meta_ok["filiere"]["raw_value"] = cfg_classe.get(
                         classe_used_for_filiere, {}
                     ).get("filiere", "")
-                    meta_ok["filiere"]["type_meta"] = (
-                        "deducted"
-                        if meta_ok["classe"].get("type_meta", "") == ""
-                        else "default"
-                    )
 
-                if not data.get("programme") and not meta_ok["programme"]["raw_value"]:
+                    if not meta_ok["filiere"].get("type_meta"):
+                        meta_ok["filiere"]["type_meta"] = (
+                            "deducted"
+                            if meta_ok["classe"].get("type_meta", "") == ""
+                            and classe_predefinie
+                            else "default"
+                        )
+
+                if not meta_ok["programme"].get("raw_value", ""):
                     cfg_filiere = cfg.get("filiere") or {}
                     meta_ok["programme"]["raw_value"] = cfg_filiere.get(
                         meta_ok["filiere"]["raw_value"], {}
@@ -598,30 +751,60 @@ class UPSTILatexDocument:
                         else "default"
                     )
 
-        # Finalisation des métadonnées
-        for key, fm in meta_ok.items():
-            raw_value = fm.get("raw_value")
+        # 7. Finalisation des métadonnées
+        for key, meta in meta_ok.items():
+            raw_value = meta.get("raw_value")
 
-            if fm.get("parametres", {}).get("join_key", False):
+            if meta.get("parametres", {}).get("join_key", False):
 
                 # Si c'est une valeur custom
                 if isinstance(raw_value, dict):
-                    fm["valeur"] = raw_value.get("nom")
-                    fm["affichage"] = raw_value.get("affichage", fm["valeur"])
-                    fm["initiales"] = raw_value.get("initiales", fm["valeur"])
+                    meta["valeur"] = raw_value.get("nom")
+                    meta["affichage"] = raw_value.get("affichage", meta["valeur"])
+                    meta["initiales"] = raw_value.get("initiales", meta["valeur"])
                     continue
 
                 obj = (cfg.get(key) or {}).get(raw_value, {})
-                fm["valeur"] = obj.get("nom", "")
-                fm["affichage"] = obj.get("affichage", "")
-                fm["initiales"] = obj.get("initiales", "")
+                meta["valeur"] = obj.get("nom", "")
+                meta["affichage"] = obj.get("affichage", "")
+                meta["initiales"] = obj.get("initiales", "")
 
             # Valeurs de repli
-            fm["valeur"] = fm.get("valeur") or raw_value
-            fm["affichage"] = fm.get("affichage") or fm["valeur"]
-            fm["initiales"] = fm.get("initiales") or fm["affichage"]
+            meta["valeur"] = meta.get("valeur") or raw_value
+            meta["affichage"] = meta.get("affichage") or meta["valeur"]
+            meta["initiales"] = meta.get("initiales") or meta["affichage"]
 
         return meta_ok, errors
+
+    def _handle_invalid_meta(
+        self,
+        meta: dict,
+        key: str,
+        reason: str,
+        use_default: bool,
+        errors: list,
+        suffix: str = "wrong_type",
+        flag: str = "",
+    ):
+        """
+        Gère les erreurs de métadonnées : type invalide, valeur manquante, vide, etc.
+        - suffix : "wrong_type", "missing", "empty", etc.
+        - use_default : True → fallback, False → valeur ignorée
+        """
+        meta["type_meta"] = f"{'default' if use_default else 'ignored'}:{suffix}"
+        meta["raw_value"] = ""
+        flag = "warning" if use_default else "error"
+        msg = (
+            "On va utiliser la valeur par défaut."
+            if use_default
+            else "Métadonnée ignorée."
+        )
+        errors.append(
+            [
+                f"{reason} {msg}",
+                flag,
+            ]
+        )
 
     # ================================================================================
     # TOCHECK Tout ce qui suit est généré par IA, à vérifier et comprendre
@@ -630,7 +813,7 @@ class UPSTILatexDocument:
     def read(self) -> str:
         if self._raw is None:
             try:
-                # Si on a détecté un encoding fallback pour le stockage local, l'utiliser
+                # Si on détecte un encoding fallback pour le stockage local, l'utiliser
                 if isinstance(self.storage, FileSystemStorage) and self._read_encoding:
                     p = Path(self.source)
                     self._raw = p.read_text(

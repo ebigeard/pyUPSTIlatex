@@ -51,10 +51,16 @@ def parse_metadonnees_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
     try:
         data = yaml.safe_load(block_clean) or {}
         if not isinstance(data, dict):
-            errors.append(["YAML front matter is not a mapping", "error"])
+            errors.append(
+                [
+                    "Le bloc YAML (front matter) n’est pas une structure de "
+                    "type dictionnaire.",
+                    "fatal_error",
+                ]
+            )
             data = {}
     except yaml.YAMLError as e:
-        errors.append([f"YAML parse error: {e}", "error"])
+        errors.append([f"Erreur de lecture des métadonnées YAML: {e}", "fatal_error"])
         data = {}
 
     return data, errors
@@ -158,7 +164,7 @@ def parse_metadonnees_tex(
             result[key] = valeur
 
         elif tex_type == "package_option_programme":
-            parsed = find_tex_entity(text, "programme", kind="package_options")
+            parsed = find_tex_entity(text, tex_key, kind="package_options")
             if not parsed:
                 continue
 
@@ -294,7 +300,8 @@ def find_tex_entity(text: str, name: str, kind: str = "command_declaration"):
     results = []
     for line in text.splitlines():
         parsed = parser(line)
-        if parsed and parsed["name"] == name:
+
+        if parsed and parsed.get("name") == name:
             results.append(parsed)
 
     if mode == "last":
@@ -450,6 +457,27 @@ def parse_package_import(line: str) -> Optional[Dict[str, Any]]:
     opts = [t.strip() for t in raw_opts.split(",") if t.strip()]
 
     return {"decl": decl, "name": name, "options": opts}
+
+
+def parse_package_imports(content: str) -> List[str]:
+    r"""Retourne la liste des noms de packages importés.
+
+    Gère:
+      - options: \\usepackage[optA,optB]{pkg}
+      - imports multiples: \\usepackage{pkgA,pkgB}
+      - chemins: \\usepackage{Dummy/Path/UPSTI_Document} -> UPSTI_Document
+    """
+    pat = re.compile(r"\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}")
+    packages: List[str] = []
+    for m in pat.findall(content):
+        for raw in m.split(','):
+            raw = raw.strip()
+            if not raw:
+                continue
+            # Normaliser séparateurs de chemin
+            base = raw.replace('/', '\\').split('\\')[-1]
+            packages.append(base)
+    return packages
 
 
 def _extract_braced_value(s: str, start: int) -> str:

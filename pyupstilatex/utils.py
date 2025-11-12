@@ -1,14 +1,17 @@
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 
 from .exceptions import DocumentParseError
 
 
-def check_type_from_str(obj: Any, expected_type: str) -> bool:
+def check_types(obj: Any, expected_types: Union[str, List[str]]) -> bool:
     """
-    Vérifie si `obj` est du type indiqué par `expected_type` (nom sous forme de str).
-    Exemple: check_type_from_str("abc", "str") -> True
+    Vérifie si `obj` est du type indiqué par `expected_types` (str ou liste de str).
+    Exemple:
+      check_types("abc", "str")         -> True
+      check_types(123, "text")          -> True
+      check_types(3.14, ["str", "text"]) -> True
     """
     type_map = {
         "str": str,
@@ -19,12 +22,18 @@ def check_type_from_str(obj: Any, expected_type: str) -> bool:
         "tuple": tuple,
         "bool": bool,
         "set": set,
+        "text": (str, int, float),
     }
 
-    cls = type_map.get(expected_type)
-    if cls is None:
-        return False
-    return isinstance(obj, cls)
+    if isinstance(expected_types, str):
+        expected_types = [expected_types]
+
+    for type_name in expected_types:
+        cls = type_map.get(type_name)
+        if cls and isinstance(obj, cls):
+            return True
+
+    return False
 
 
 def read_json_config(path: Optional[Path | str] = None) -> dict:
