@@ -34,7 +34,8 @@ __all__ = [
     "MetaConfig",
     "CompilationConfig",
     "TraitementParLotConfig",
-    "UploadConfig",
+    "FTPConfig",
+    "SiteConfig",
     "PolyTDConfig",
     "AppConfig",
     "load_config",
@@ -253,23 +254,42 @@ class TraitementParLotConfig:
 
 
 @dataclass(frozen=True)
-class UploadConfig:
+class FTPConfig:
     """Valeurs par défaut pour la gestion de l'upload, provenant du .env"""
 
-    ftp_user: str
-    ftp_password: str
-    ftp_host: str
-    ftp_port: int
-    webhook_url: str
+    user: str
+    password: str
+    host: str
+    port: int
 
     @classmethod
-    def from_env(cls) -> "UploadConfig":
+    def from_env(cls) -> "FTPConfig":
         return cls(
-            ftp_user=get_str("UPLOAD_FTP_USER", "ftp_user"),
-            ftp_password=get_str("UPLOAD_FTP_PASSWORD", "ftp_pwd"),
-            ftp_host=get_str("UPLOAD_FTP_HOST", "ftp_host"),
-            ftp_port=get_int("UPLOAD_FTP_PORT", 21),
-            webhook_url=get_str("UPLOAD_WEBHOOK_URL", ""),
+            user=get_str("FTP_USER", "ftp_user"),
+            password=get_str("FTP_PASSWORD", "ftp_pwd"),
+            host=get_str("FTP_HOST", "ftp_host"),
+            port=get_int("FTP_PORT", 21),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConfig:
+    """Valeurs par défaut pour la gestion du site, provenant du .env"""
+
+    passkey: str
+    endpoint_get_meta: str
+    webhook_upload_url: str
+    document_url_pattern: str
+
+    @classmethod
+    def from_env(cls) -> "SiteConfig":
+        return cls(
+            passkey=get_str("SITE_PASSKEY", "passkey"),
+            endpoint_get_meta=get_str("SITE_ENDPOINT_GET_META", "endpoint_get_meta"),
+            webhook_upload_url=get_str("SITE_WEBHOOK_UPLOAD_URL", "webhook_upload_url"),
+            document_url_pattern=get_str(
+                "SITE_DOCUMENT_URL_PATTERN", "document_url_pattern"
+            ),
         )
 
 
@@ -307,7 +327,8 @@ class AppConfig:
     meta: MetaConfig
     compilation: CompilationConfig
     traitement_par_lot: TraitementParLotConfig
-    upload: UploadConfig
+    ftp: FTPConfig
+    site: SiteConfig
     poly_td: PolyTDConfig
 
     @classmethod
@@ -316,7 +337,8 @@ class AppConfig:
             meta=MetaConfig.from_env(),
             compilation=CompilationConfig.from_env(),
             traitement_par_lot=TraitementParLotConfig.from_env(),
-            upload=UploadConfig.from_env(),
+            ftp=FTPConfig.from_env(),
+            site=SiteConfig.from_env(),
             poly_td=PolyTDConfig.from_env(),
         )
 

@@ -2,7 +2,11 @@
 
 ## En cours
 
-- Compiler:
+- Paramètres
+
+  - Prévoir un fichier pyUPSTIlatex-custom.json
+
+- Compiler
   - Récupérer les métadonnées et les paramètres de compilation
   - Renommer le fichier si nécessaire
   - Check de doublons id_document sur le site si nécessaire (rajouter url de check dans le .env)
@@ -37,6 +41,11 @@
 ## Fonctionnalités
 
 - [ ] Faire un script plus propre de conception de poly de TD : ajout d'une meta : is_in_poly = True/False, compilation dans un seul fichier tex, création de la table des matieres, etc... ou bien on conserve l'étape de transition par le fichier xml... L'idée serait de faire un seul poly en compilant directement les contenus des fichiers tex, sans rajouter de pages blanches, du coup...
+
+### Migration -> UPSTIv2
+
+- renommer les dossiers en virant les majuscules
+- supprimer @parametres.upsti.ini et le remplacer si nécessaire par le YAML
 
 ## Release
 

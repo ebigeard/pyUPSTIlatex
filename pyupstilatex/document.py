@@ -247,7 +247,7 @@ class UPSTILatexDocument:
         self.msg.affiche_messages(metadata_messages, "resultat_item")
 
         # -------------------------------------------------------------
-        # 5- Renommer le fichier
+        # 5- Vérification et changement du nom du fichier
         # -------------------------------------------------------------
         if mode in ["deep"] and self.compilation_parameters.get(
             "renommer_automatiquement", False
@@ -263,20 +263,45 @@ class UPSTILatexDocument:
             self.msg.affiche_messages(chemin_messages, "resultat_item")
 
         # -------------------------------------------------------------
+        # 6- Générer le QRCode
+        # -------------------------------------------------------------
+        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
+            if verbose in ("complete", "normal"):
+                self.msg.info("Génération du QR code du document")
+
+            qrcode, qrcode_errors = self._generate_qrcode()
+
+            #
+            # JENSUISLA !
+            # TODO : creer le QRCode et l'enregistrer dans le dossier images
+            #
+
+            if verbose in ("complete",):
+                self.msg.resultat_item(
+                    "Fonctionnalité en cours de développement", flag="info", last=True
+                )
+
+        # -------------------------------------------------------------
+        # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
+        # -------------------------------------------------------------
+        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
+            if verbose in ("complete", "normal"):
+                self.msg.info("Génération du code latex à partir des métadonnées")
+
+            # template, template_errors = self._generate_latex_template()
+
+            if verbose in ("complete",):
+                self.msg.resultat_item(
+                    "Fonctionnalité en cours de développement", flag="info", last=True
+                )
+
+        # -------------------------------------------------------------
         # TO CONTINUE
         # -------------------------------------------------------------
         return None, [["Test de la méthode compile", "error"]]
         # -------------------------------------------------------------
 
-        # 2- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
-        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            step_result, step_errors = self._generate_latex_template()
-            if step_errors:
-                errors.extend(step_errors)
-            if step_result is not None:
-                result = {**(result or {}), **step_result}
-
-        # 3- Fichier tex v1 pour la rétrocompatibilité (sera ajouté dans les sources)
+        # 9- Fichier tex v1 pour la rétrocompatibilité (sera ajouté dans les sources)
         if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
             step_result, step_errors = self._generate_UPSTI_Document_v1_tex_file()
             if step_errors:
@@ -300,6 +325,7 @@ class UPSTILatexDocument:
                 result = {**(result or {}), **step_result}
 
         # 6- Upload (création du fichier meta, du zip, upload et webhook)
+        # Dans le fichier meta, on stockera aussi le dossier local
         if mode in ["deep", "normal"] and self.compilation_parameters.get(
             "upload", False
         ):
@@ -573,9 +599,59 @@ class UPSTILatexDocument:
                 ]
             ]
 
-        return str(nouveau_chemin), [
-            [f"Nouveau nom : {nouveau_chemin.name}", "success"]
-        ]
+        # 10. Suppression de tous les vieux fichiers liés (cache, compilés, etc.)
+        import glob
+
+        deleted_files: List[str] = []
+        failed_deletions: List[List[str]] = []
+        try:
+            parent = chemin_actuel.parent
+            pattern = glob.escape(chemin_actuel.stem) + "*"
+
+            print(f"\n{pattern}\n{list(parent.glob(pattern))}\n\n")
+
+            for p in parent.glob(pattern):
+                # éviter de toucher le nouveau fichier
+                try:
+                    if p.resolve() == Path(self.source).resolve():
+                        continue
+                except Exception:
+                    pass
+
+                if p.is_file():
+                    try:
+                        p.unlink()
+                        deleted_files.append(str(p.name))
+                    except Exception as e:
+                        failed_deletions.append(
+                            [f"Échec suppression {p.name}: {e}", "warning"]
+                        )
+        except Exception as e:
+            failed_deletions.append(
+                [
+                    f"Erreur lors de la suppression des fichiers liés: {e}",
+                    "warning",
+                ]
+            )
+
+        messages: List[List[str]] = []
+        messages.extend(failed_deletions)
+        messages.append([f"Nouveau nom : {nouveau_chemin.name}", "success"])
+
+        return str(nouveau_chemin), messages
+
+    def _generate_qrcode(self) -> tuple[Optional[Dict], List[List[str]]]:
+        """Génère un qrcode vers la page d'un document, à partir de l'id_unique
+        (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur le fichier
+            généré, et messages est une liste de [message, flag].
+        """
+        # On génère le qrcode
+        return None, []
 
     def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
