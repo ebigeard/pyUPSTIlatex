@@ -186,6 +186,26 @@ class DocumentFile:
     def read_encoding(self) -> Optional[str]:
         return self._read_encoding
 
+    @property
+    def path(self) -> Path:
+        """Retourne le Path du fichier source."""
+        return Path(self.source)
+
+    @property
+    def parent(self) -> Path:
+        """Retourne le dossier parent du fichier source."""
+        return Path(self.source).parent
+
+    @property
+    def stem(self) -> str:
+        """Retourne le nom du fichier sans extension."""
+        return Path(self.source).stem
+
+    @property
+    def suffix(self) -> str:
+        """Retourne l'extension du fichier (avec le point)."""
+        return Path(self.source).suffix
+
     def check_file(self, mode: str = "read") -> tuple[bool, List[List[str]]]:
         """Vérifie rapidement l'état du fichier selon le mode demandé.
 

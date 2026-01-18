@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import yaml
 from slugify import slugify
@@ -19,6 +19,14 @@ from .utils import (
     check_types,
     read_json_config,
 )
+
+
+class CompilationStepError(Exception):
+    """Exception levée quand une étape de compilation échoue."""
+
+    def __init__(self, messages: List[List[str]]):
+        self.messages = messages
+        super().__init__()
 
 
 @dataclass
@@ -161,139 +169,67 @@ class UPSTILatexDocument:
         result: Optional[Dict] = None
         errors: List[List[str]] = []
 
-        # Normaliser le niveau de verbosité
-        if verbose not in ("complete", "normal", "messages", "silent"):
-            verbose = "normal"
+        # Normaliser le niveau de verbosité et le mode
+        valid_modes = {"deep", "normal", "quick"}
+        valid_verbose = {"complete", "normal", "messages", "silent"}
+        self._mode = mode if mode in valid_modes else "normal"
+        self._verbose = verbose if verbose in valid_verbose else "normal"
 
-        # -------------------------------------------------------------
-        # 1- Vérification de l'intégrité du fichier
-        # -------------------------------------------------------------
-        if verbose in ("complete", "normal"):
-            self.msg.info("Vérification de l'intégrité du fichier")
-
-        file_ok, file_errors = self.file.check_file("read")
-
-        if file_ok is False:
-            return None, file_errors
-
-        if verbose in ("complete",):
-            self.msg.resultat_item("OK !", flag="success", last=True)
-
-        # -------------------------------------------------------------
-        # 2- Vérification de la version
-        # -------------------------------------------------------------
-        if verbose in ("complete", "normal"):
-            self.msg.info("Détection de la version du document")
-
-        version, version_errors = self.get_version()
-
-        if version is None:
-            return None, version_errors
-        elif version == "EPB_Cours":
-            version_errors.append(
-                [
-                    "Les documents EPB ne sont pas pris en charge par pyUPSTIlatex. "
-                    "Il est néanmoins possible de les convertir en utilisant : "
-                    "pyupstilatex migrate.",
-                    "fatal_error",
-                ]
+        try:
+            # 1- Vérification de l'intégrité du fichier
+            self._compilation_step(
+                affichage="Vérification de l'intégrité du fichier",
+                fonction=lambda: self.file.check_file("read"),
             )
-            return None, version_errors
 
-        if verbose in ("complete",):
-            self.msg.resultat_item("OK !", flag="success", last=True)
-
-        # -------------------------------------------------------------
-        # 3- Lecture des paramètres de compilation
-        # -------------------------------------------------------------
-        if verbose in ("complete", "normal"):
-            self.msg.info("Lecture des paramètres de compilation")
-
-        comp_params, comp_params_errors = self.get_compilation_parameters()
-
-        if comp_params is None:
-            return None, comp_params_errors
-
-        if not comp_params.get("compiler", True):
-            cfg = load_config()
-            nom_fichier_comp = cfg.compilation.nom_fichier_parametres_compilation
-            comp_params_errors.append(
-                [
-                    "La compilation est désactivée pour ce document "
-                    "(paramètre 'compiler' à false dans le fichier "
-                    f"{nom_fichier_comp}).",
-                    "fatal_error",
-                ]
+            # 2- Vérification de la version
+            self._compilation_step(
+                affichage="Détection de la version du document",
+                fonction=lambda: self.get_version(check_compatibilite=True),
             )
-            return None, comp_params_errors
 
-        if verbose in ("complete",):
-            self.msg.resultat_item("OK !", flag="success", last=True)
+            # 3- Lecture des paramètres de compilation
+            self._compilation_step(
+                affichage="Lecture des paramètres de compilation",
+                fonction=self._get_compilation_parameters_for_compilation,
+            )
 
-        # -------------------------------------------------------------
-        # 4- Lecture des métadonnées
-        # -------------------------------------------------------------
-        if verbose in ("complete", "normal"):
-            self.msg.info("Lecture des métadonnées du fichier tex")
+            # 4- Lecture des métadonnées
+            self._compilation_step(
+                affichage="Lecture des métadonnées du fichier tex",
+                fonction=self.get_metadata,
+            )
 
-        metadata, metadata_messages = self.get_metadata()
+            # 5- Vérification et changement de l'id unique du document
+            self._compilation_step(
+                affichage="Vérification de l'id unique du document",
+                fonction=self._check_id_unique,
+            )
 
-        if metadata is None:
-            return None, metadata_messages
-
-        if verbose in ("complete",) and len(metadata_messages) == 0:
-            metadata_messages.append(["OK !", "success"])
-
-        self.msg.affiche_messages(metadata_messages, "resultat_item")
-
-        # -------------------------------------------------------------
-        # 5- Vérification et changement du nom du fichier
-        # -------------------------------------------------------------
-        if mode in ["deep"] and self.compilation_parameters.get(
-            "renommer_automatiquement", False
-        ):
-            if verbose in ("complete", "normal"):
-                self.msg.info("Vérification du nom de fichier")
-
-            chemin, chemin_messages = self._rename_file()
-
-            if verbose in ("complete",) and len(chemin_messages) == 0:
-                chemin_messages.append(["OK !", "success"])
-
-            self.msg.affiche_messages(chemin_messages, "resultat_item")
-
-        # -------------------------------------------------------------
-        # 6- Générer le QRCode
-        # -------------------------------------------------------------
-        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            if verbose in ("complete", "normal"):
-                self.msg.info("Génération du QR code du document")
-
-            qrcode, qrcode_errors = self._generate_qrcode()
-
-            #
-            # JENSUISLA !
-            # TODO : creer le QRCode et l'enregistrer dans le dossier images
-            #
-
-            if verbose in ("complete",):
-                self.msg.resultat_item(
-                    "Fonctionnalité en cours de développement", flag="info", last=True
+            # 6- Vérification et changement du nom du fichier
+            if self.compilation_parameters.get("renommer_automatiquement", False):
+                self._compilation_step(
+                    mode_ok=["deep"],
+                    affichage="Vérification du nom de fichier",
+                    fonction=self._rename_file,
                 )
 
-        # -------------------------------------------------------------
-        # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
-        # -------------------------------------------------------------
-        if mode in ["deep", "normal"] and self.version == "UPSTI_Document_v2":
-            if verbose in ("complete", "normal"):
-                self.msg.info("Génération du code latex à partir des métadonnées")
+            # 7- Générer le QRCode
+            self._compilation_step(
+                affichage="Génération du QR code du document",
+                fonction=self._generate_qrcode,
+            )
 
-            # template, template_errors = self._generate_latex_template()
-
-            if verbose in ("complete",):
-                self.msg.resultat_item(
-                    "Fonctionnalité en cours de développement", flag="info", last=True
+            # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
+            if self.version == "UPSTI_Document_v2":
+                self._compilation_step(
+                    affichage="Génération du code latex à partir des métadonnées",
+                    fonction=self._generate_latex_template,
                 )
+
+        # On gère ici les étapes qui intterrompent la compilation
+        except CompilationStepError:
+            return None, []
 
         # -------------------------------------------------------------
         # TO CONTINUE
@@ -336,6 +272,109 @@ class UPSTILatexDocument:
                 result = {**(result or {}), **step_result}
 
         return result, errors
+
+    def _compilation_step(
+        self,
+        fonction: Callable,
+        mode: Optional[str] = None,
+        mode_ok: list = ["deep", "normal"],
+        verbose: Optional[str] = None,
+        affichage: str = "Étape de compilation",
+    ) -> List[str]:
+        """Exécute une étape de compilation en gérant l'affichage et les erreurs.
+
+        Cette méthode centralise l'exécution des différentes étapes de compilation
+        en gérant automatiquement :
+        - Le filtrage par mode (deep, normal, quick)
+        - L'affichage des messages selon le niveau de verbosité
+        - L'ajout d'un message de succès si aucun message n'est renvoyé
+        - La levée d'une exception si l'étape échoue (résultat None)
+
+        Paramètres
+        ----------
+        fonction : Callable
+            Fonction à exécuter pour cette étape. Doit retourner un tuple
+            (resultat, messages) où resultat peut être None en cas d'erreur.
+        mode : Optional[str], optional
+            Mode de compilation pour cette étape. Si None, utilise `self._mode`.
+            Défaut : None.
+        mode_ok : list, optional
+            Liste des modes autorisés pour exécuter cette étape.
+            Défaut : ["deep", "normal"].
+        verbose : Optional[str], optional
+            Niveau de verbosité pour l'affichage. Si None, utilise `self._verbose`.
+            Valeurs acceptées : "complete", "normal", "messages", "silent".
+            Défaut : None.
+        affichage : str, optional
+            Message à afficher avant l'exécution de l'étape.
+            Défaut : "Étape de compilation".
+
+        Retourne
+        --------
+        tuple[Any, List[List[str]]]
+            Tuple (resultat, messages) où :
+            - resultat : valeur retournée par la fonction (ou None)
+            - messages : liste de [message, flag] générés durant l'exécution
+
+        Raises
+        ------
+        CompilationStepError
+            Levée si la fonction retourne None comme résultat, indiquant un échec
+            de l'étape. L'exception contient la liste des messages d'erreur.
+        """
+        mode = mode or getattr(self, "_mode", "normal")
+        verbose = verbose or getattr(self, "_verbose", "complete")
+        messages: List[List[str]] = []
+        resultat = None
+        if mode in mode_ok:
+            if verbose in ["complete", "normal"]:
+                self.msg.info(affichage)
+
+            resultat, messages = fonction()
+
+            if verbose in ["complete"] and len(messages) == 0:
+                messages.append(["OK !", "success"])
+            self.msg.affiche_messages(messages, "resultat_item")
+
+            # Si resultat est None, c'est une erreur fatale
+            if resultat is None:
+                raise CompilationStepError(messages)
+
+        return resultat, messages
+
+    def _get_compilation_parameters_for_compilation(
+        self,
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Récupère les paramètres de compilation adaptés pour la compilation
+        (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (compilation_parameters, messages) où messages est une liste de
+            [message, flag].
+        """
+        # On utilise la méthode interne
+        comp_params, comp_params_messages = self.get_compilation_parameters()
+
+        if comp_params is None:
+            return None, comp_params_messages
+
+        # On va prendre en compte le paramètre "compiler"
+        if not comp_params.get("compiler", True):
+            cfg = load_config()
+            nom_fichier_comp = cfg.compilation.nom_fichier_parametres_compilation
+            comp_params_messages.append(
+                [
+                    "La compilation est désactivée pour ce document "
+                    "(paramètre 'compiler' à false dans le fichier "
+                    f"{nom_fichier_comp}).",
+                    "fatal_error",
+                ]
+            )
+            return None, comp_params_messages
+
+        return comp_params, []
 
     def _rename_file(self) -> tuple[Optional[str], List[List[str]]]:
         """Renomme le fichier source selon les métadonnées (méthode interne).
@@ -385,11 +424,12 @@ class UPSTILatexDocument:
             return result
 
         # 1. Récupérer le format depuis la config
+        chemin_actuel = self.file.path
         cfg = load_config()
         format_nom_fichier = cfg.compilation.format_nom_fichier
 
         if not format_nom_fichier:
-            return None, [
+            return chemin_actuel.name, [
                 [
                     "Format de nom de fichier non configuré."
                     "On conserve le nom de fichier initial.",
@@ -402,7 +442,7 @@ class UPSTILatexDocument:
         placeholders = re.findall(pattern, format_nom_fichier)
 
         if not placeholders:
-            return None, [
+            return chemin_actuel.name, [
                 [
                     "Aucun placeholder trouvé dans le format de nom."
                     "On conserve le nom de fichier initial.",
@@ -414,7 +454,7 @@ class UPSTILatexDocument:
         metadata = self.metadata
         cfg_json, cfg_json_errors = read_json_config()
         if cfg_json_errors:
-            return None, cfg_json_errors
+            return chemin_actuel.name, cfg_json_errors
         cfg_json = cfg_json or {}
 
         # 4. Remplacer chaque placeholder par sa valeur dans les métadonnées
@@ -436,7 +476,7 @@ class UPSTILatexDocument:
 
             special_meta_keys = ["titre_ou_titre_activite"]
             if meta_key not in metadata and meta_key not in special_meta_keys:
-                return None, [
+                return chemin_actuel.name, [
                     [
                         f"Métadonnée '{meta_key}' introuvable. "
                         "On conserve le nom de fichier initial.",
@@ -460,7 +500,7 @@ class UPSTILatexDocument:
                     valeur_finale = _apply_filters(str(valeur), filters)
                     nouveau_nom = nouveau_nom.replace(f"[{placeholder}]", valeur_finale)
                 else:
-                    return None, [
+                    return chemin_actuel.name, [
                         [
                             f"Métadonnée '{meta_key}' vide. On conserve le nom de "
                             "fichier initial.",
@@ -473,7 +513,7 @@ class UPSTILatexDocument:
                 raw_value = metadata[meta_key].get("raw_value", "")
 
                 if not raw_value:
-                    return None, [
+                    return chemin_actuel.name, [
                         [
                             f"Métadonnée '{meta_key}' vide. On conserve le nom de "
                             "fichier initial.",
@@ -505,7 +545,7 @@ class UPSTILatexDocument:
                             f"[{placeholder}]", valeur_finale
                         )
                     else:
-                        return None, [
+                        return chemin_actuel.name, [
                             [
                                 f"Propriété '{'.'.join(parts[1:])}' introuvable pour "
                                 f"'{meta_key}'. On conserve le nom de fichier initial.",
@@ -513,7 +553,7 @@ class UPSTILatexDocument:
                             ]
                         ]
                 else:
-                    return None, [
+                    return chemin_actuel.name, [
                         [
                             f"Impossible de résoudre '{placeholder}'. "
                             "On conserve le nom de fichier initial.",
@@ -522,21 +562,21 @@ class UPSTILatexDocument:
                     ]
 
         # 5. Construire le nouveau chemin complet
-        chemin_actuel = Path(self.source)
-        nouveau_chemin = chemin_actuel.parent / f"{nouveau_nom}{chemin_actuel.suffix}"
+        nouveau_chemin = self.file.parent / f"{nouveau_nom}{self.file.suffix}"
 
         # 6. Vérifier si le nom a changé
         if nouveau_chemin == chemin_actuel:
-            return None, []
+            return chemin_actuel.name, []
 
         # 7. Pré-vérifications : existence du fichier source et droit en écriture
         if not chemin_actuel.exists() or not chemin_actuel.is_file():
-            return None, [[f"Fichier source introuvable: {chemin_actuel}", "warning"]]
-
+            return chemin_actuel.name, [
+                [f"Fichier source introuvable: {chemin_actuel}", "warning"]
+            ]
         # Utiliser l'objet DocumentFile pour vérifier l'accessibilité en écriture
         try:
             if not self.file.is_writable:
-                return None, [
+                return chemin_actuel.name, [
                     [f"Fichier non accessible en écriture: {chemin_actuel}", "warning"]
                 ]
         except Exception:
@@ -545,7 +585,7 @@ class UPSTILatexDocument:
 
         # Ne pas écraser un fichier existant
         if nouveau_chemin.exists():
-            return None, [
+            return chemin_actuel.name, [
                 [
                     f"Le fichier cible existe déjà: {nouveau_chemin}. "
                     "On conserve le nom de fichier initial.",
@@ -557,7 +597,7 @@ class UPSTILatexDocument:
         try:
             chemin_actuel.rename(nouveau_chemin)
         except PermissionError as e:
-            return None, [
+            return chemin_actuel.name, [
                 [
                     f"Permission refusée lors du renommage: {e}. "
                     "On conserve le nom de fichier initial.",
@@ -565,7 +605,7 @@ class UPSTILatexDocument:
                 ]
             ]
         except FileExistsError as e:
-            return None, [
+            return chemin_actuel.name, [
                 [
                     f"Le fichier cible existe déjà: {e}. On conserve le nom de "
                     "fichier initial.",
@@ -573,7 +613,7 @@ class UPSTILatexDocument:
                 ]
             ]
         except Exception as e:
-            return None, [
+            return chemin_actuel.name, [
                 [
                     f"Erreur lors du renommage: {e}. On conserve le nom de fichier "
                     "initial.",
@@ -592,7 +632,7 @@ class UPSTILatexDocument:
             )
         except Exception:
             # Si la reconstruction de l'objet DocumentFile échoue, signaler une erreur
-            return None, [
+            return chemin_actuel.name, [
                 [
                     "Renommage effectué mais impossible d'initialiser l'objet fichier.",
                     "warning",
@@ -608,12 +648,10 @@ class UPSTILatexDocument:
             parent = chemin_actuel.parent
             pattern = glob.escape(chemin_actuel.stem) + "*"
 
-            print(f"\n{pattern}\n{list(parent.glob(pattern))}\n\n")
-
             for p in parent.glob(pattern):
                 # éviter de toucher le nouveau fichier
                 try:
-                    if p.resolve() == Path(self.source).resolve():
+                    if p.resolve() == self.file.path.resolve():
                         continue
                 except Exception:
                     pass
@@ -636,7 +674,7 @@ class UPSTILatexDocument:
 
         messages: List[List[str]] = []
         messages.extend(failed_deletions)
-        messages.append([f"Nouveau nom : {nouveau_chemin.name}", "success"])
+        messages.append([f"Le fichier a été renommé : {nouveau_chemin.name}", "info"])
 
         return str(nouveau_chemin), messages
 
@@ -650,8 +688,145 @@ class UPSTILatexDocument:
             (result, messages) où result contient des informations sur le fichier
             généré, et messages est une liste de [message, flag].
         """
-        # On génère le qrcode
-        return None, []
+        # Récupération de la configuration
+        cfg = load_config()
+        pattern = cfg.site.document_url_pattern or ""
+
+        if not pattern:
+            return None, [
+                [
+                    "Pattern d'URL de document non configuré. "
+                    "Le QRcode n'a pas été créé.",
+                    "fatal_error",
+                ]
+            ]
+
+        # Récupérer les métadonnées
+        metadata, metadata_messages = self.get_metadata()
+        if metadata is None:
+            metadata_messages.append(
+                [
+                    "Pattern d'URL de document non configuré. "
+                    "Le QRcode n'a pas été créé.",
+                    "fatal_error",
+                ]
+            )
+            return None, metadata_messages
+
+        id_unique = metadata.get("id_unique", {}).get("valeur", "")
+
+        # Construction de l'url
+        url = pattern.replace("{id_unique}", id_unique)
+
+        # Création du chemin du fichier QRcode
+        comp = cfg.compilation
+        images_dir = (
+            self.file.parent
+            / str(comp.dossier_sources_latex)
+            / str(comp.dossier_sources_latex_images)
+        )
+        try:
+            images_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        # qrcode_filename = f"{self.file.stem}{comp.suffixe_nom_qrcode}.png"
+        qrcode_filename = f"{comp.fichier_qrcode}.png"
+        qrcode_path = images_dir / qrcode_filename
+
+        # Génération du QRcode
+        import qrcode
+
+        try:
+            # TODO : ici on pourrait faire un plus joli QRcode avec logo, couleurs, etc.
+            qrcode.make(url).save(qrcode_path)
+        except Exception:
+            return None, [["Erreur lors de la génération du QRcode.", "fatal_error"]]
+
+        return str(qrcode_path), []
+
+    def _check_id_unique(self) -> tuple[Optional[str], List[List[str]]]:
+        """Vérifie si l'id_unique est présent dans le fichier et est bien dans la bonne
+        forme. Sinon, on écrit la nouvelle valeur (méthode interne).
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (nouveau_chemin, messages) où messages est une liste de [message, flag].
+        """
+        cfg = load_config()
+        prefixe_id_unique: str = cfg.meta.id_document_prefixe
+        etat_id_unique: str = "unchanged"
+        message: Optional[str] = None
+        flag: Optional[str] = None
+
+        metadata, metadata_messages = self.get_metadata()
+        if metadata is None:
+            return None, metadata_messages
+
+        id_unique = metadata.get("id_unique", {}).get("valeur", "")
+        id_unique_initiale = metadata.get("id_unique", {}).get("initial_value", "")
+
+        if id_unique != id_unique_initiale:
+
+            # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+
+            if id_unique_initiale is None or id_unique_initiale == "":
+                message = f"L'id unique ({id_unique}) a été créé et ajouté au fichier."
+                flag = "info"
+                etat_id_unique = "new"
+                valeur_id_unique = id_unique
+            else:
+                message = (
+                    "L'id unique a été modifié dans le fichier : "
+                    f"{id_unique_initiale} -> {id_unique}"
+                )
+                flag = "warning"
+                etat_id_unique = "changed"
+                valeur_id_unique = id_unique
+
+        else:
+            # L'id n'a pas été changé, il faut vérifier qu'il est bien formé.
+            import re
+
+            # Valide un id_unique formé du préfixe + un entier
+            pattern = re.compile(rf"^{re.escape(prefixe_id_unique)}[0-9]+$")
+
+            if not pattern.match(id_unique):
+                # Mauvais format, il faut en générer un nouveau
+                epoch = int(time.time())
+                nouvel_id_unique = f"{prefixe_id_unique}{epoch}"
+
+                # Mise à jour du cache des métadonnées
+                if self._metadata is not None:
+                    self._metadata["id_unique"]["valeur"] = nouvel_id_unique
+
+                # Il faut écrire le nouvel id dans le fichier tex
+                # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+
+                message = (
+                    f"L'id unique n'était pas dans le bon format ({id_unique}). "
+                    f"Il a été corrigé: {nouvel_id_unique}"
+                )
+                flag = "warning"
+                etat_id_unique = "changed"
+                valeur_id_unique = nouvel_id_unique
+
+            # On va ajouter un paramètre pour donner l'état de l'id_unique
+            #
+            # TODEL
+            # Pour la première création des documents sur le site, je vais forcer
+            # l'état à "new" pour tous les documents, afin de faciliter la migration.
+            #
+            etat_id_unique = "new"
+            #
+            comp_params, comp_params_messages = self.get_compilation_parameters()
+            if comp_params is not None:
+                self._compilation_parameters["etat_id_unique"] = etat_id_unique
+
+        if message and flag:
+            return valeur_id_unique, [[message, flag]]
+        return valeur_id_unique, []
 
     def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
@@ -663,7 +838,7 @@ class UPSTILatexDocument:
             généré, et messages est une liste de [message, flag].
         """
         # On génère le code LaTeX complet à partir des métadonnées
-        return None, []
+        return None, [["Non implémenté.", "info"]]
 
     def _generate_UPSTI_Document_v1_tex_file(
         self,
@@ -884,7 +1059,9 @@ class UPSTILatexDocument:
         self._compilation_parameters = parametres_compilation
         return parametres_compilation, errors
 
-    def get_version(self) -> tuple[Optional[str], List[List[str]]]:
+    def get_version(
+        self, check_compatibilite: bool = False
+    ) -> tuple[Optional[str], List[List[str]]]:
         """Retourne la version du document (avec cache).
 
         Détecte automatiquement le format du document parmi :
@@ -903,6 +1080,22 @@ class UPSTILatexDocument:
             return self._version, []
 
         version, errors = self._detect_version()
+
+        if version is None:
+            return None, errors
+
+        # Si demandé, vérifier explicitement la compatibilité de la version
+        if check_compatibilite:
+            if version not in ("UPSTI_Document_v1", "UPSTI_Document_v2"):
+                return None, [
+                    [
+                        f"Les documents {version} ne sont pas pris en charge par "
+                        "pyUPSTIlatex. Il est néanmoins possible de les convertir en "
+                        "utilisant : pyupstilatex migrate.",
+                        "fatal_error",
+                    ]
+                ]
+
         self._version = version
         return version, errors
 
@@ -927,8 +1120,9 @@ class UPSTILatexDocument:
         # Déterminer le chemin du fichier
         if fichier_path is None:
             cfg = load_config()
-            doc_dir = Path(self.source).parent
-            fichier_path = doc_dir / cfg.compilation.nom_fichier_parametres_compilation
+            fichier_path = (
+                self.file.parent / cfg.compilation.nom_fichier_parametres_compilation
+            )
 
         # Vérifier l'existence du fichier
         if not fichier_path.exists() or not fichier_path.is_file():

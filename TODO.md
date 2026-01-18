@@ -2,41 +2,35 @@
 
 ## En cours
 
+- Samedi
+
+  - Factoriser les fonctions en les prefixant avec _compile_
+  - voir s'il faut renommer get_compilation_parametres (si ça ne concerne pas que la compilation) : ex: get_parametres_locaux
+  - pour liste-fichier, ajouter un parametre pour lister les fichiers rejetés (qui retourne la raison du rejet)
+
 - Paramètres
 
   - Prévoir un fichier pyUPSTIlatex-custom.json
+  - Prévoir aussi une classe UPSTILatexDocumentCustom
 
 - Compiler
-  - Récupérer les métadonnées et les paramètres de compilation
-  - Renommer le fichier si nécessaire
-  - Check de doublons id_document sur le site si nécessaire (rajouter url de check dans le .env)
-  - Compilation (s) des fichiers tex
-  - Créer le fichier sources.zip
-  - Copier dans le fichier cible (si param)
-  - Générer le fichier .meta.json (ou .meta.yaml) (mettre une variable : changement_parametres_obligatoires=bool pour voir si on detecte les doublonsou pas)
-  - Uploader sur le FTP
-  - Envoyer une requete d'actualisation sur le site (rajouter url dans le .env)
-- Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
+
+  - Créer les fonctions pour ajouter ou supprimer des métadonnées dans un document (en v1 et en v2)
+
+- LaTeX
+
+  - Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
 
 ## Roadmap
 
-1. Script pour corriger les doublons d'id_document
-
-## CLI
-
-- liste : liste les documents contenus dans un dossier qui possèdent tels ou tels attributs (options de package, type, etc...)
-- change-parametre : change la valeur d'un paramètre ou d'une métadonnée
-- compil : compiler un fichier tex
-- quick-compil : compilation rapide
-- migrate : migration vers UPSTI_Document v3
-- create-poly-td : création d'un poly de TD
-- create-poly-colles : création d'un ou des polys de colle
-- merge-pdf : fusionner plusieurs pdf (avec plusieurs pages ou non)
+1. Finir le script de compilation
+2. Scripts pour modifier les fichier tex : ajouter/modifier balise/meta, supprimer, modifier zone, etc...
+3. Script de migration v1 <-> v2
+4. Poly de td et de colles
 
 ## À faire plus tard
 
 - [ ] Faire un script pour afficher les valeurs possibles des différentes paramètres
-- [ ] Ajouter un pyUPSTIlatex_custom.json pour rajouter des variantes par exemple
 
 ## Fonctionnalités
 

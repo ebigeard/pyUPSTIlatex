@@ -158,11 +158,13 @@ class CompilationConfig:
     copier_fichier_version: bool
     format_nom_fichier_version: str
     dossier_sources_latex: str
+    dossier_sources_latex_images: str
     dossier_tmp_pour_zip: str
     suffixe_nom_fichier_prof: str
     suffixe_nom_fichier_a_trous: str
     suffixe_nom_diaporama: str
     suffixe_nom_sources: str
+    fichier_qrcode: str
 
     @classmethod
     def from_env(cls) -> "CompilationConfig":
@@ -214,10 +216,13 @@ class CompilationConfig:
                 "COMPILATION_OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
             ),
             dossier_sources_latex=get_str(
-                "COMPILATION_OS_DOSSIER_SOURCES_LATEX", "Src"
+                "COMPILATION_OS_DOSSIER_SOURCES_LATEX", "src"
+            ),
+            dossier_sources_latex_images=get_str(
+                "COMPILATION_OS_DOSSIER_SOURCES_LATEX_IMAGES", "images"
             ),
             dossier_tmp_pour_zip=get_str(
-                "COMPILATION_OS_DOSSIER_TMP_POUR_ZIP", "tempZip"
+                "COMPILATION_OS_DOSSIER_TMP_POUR_ZIP", "temp_zip"
             ),
             suffixe_nom_fichier_prof=get_str(
                 "COMPILATION_OS_SUFFIXE_NOM_FICHIER_PROF", "-prof"
@@ -231,6 +236,7 @@ class CompilationConfig:
             suffixe_nom_sources=get_str(
                 "COMPILATION_OS_SUFFIXE_NOM_SOURCES", "-sources"
             ),
+            fichier_qrcode=get_str("COMPILATION_OS_FICHIER_QRCODE", "qrcode"),
         )
 
 
