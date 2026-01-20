@@ -1,22 +1,17 @@
 # TODO
 
+Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
+
 ## En cours
 
-- Samedi
-
-  - pour liste-fichier, ajouter un parametre pour lister les fichiers rejetés (qui retourne la raison du rejet)
-
 - Paramètres
-
   - Prévoir un fichier pyUPSTIlatex-custom.json
   - Prévoir aussi une classe UPSTILatexDocumentCustom
 
 - Compiler
-
   - Créer les fonctions pour ajouter ou supprimer des métadonnées dans un document (en v1 et en v2)
 
 - LaTeX
-
   - Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
 
 ## Roadmap

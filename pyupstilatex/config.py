@@ -151,6 +151,7 @@ class CompilationConfig:
     nombre_compilations_latex: int
 
     # Compilation rapide et OS
+    affichage_detaille_dans_console: bool
     nom_fichier_parametres_compilation: str
     extension_fichier_metadonnees: str
     format_nom_fichier: str
@@ -195,6 +196,9 @@ class CompilationConfig:
                 "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2
             ),
             # Compilation rapide et OS
+            affichage_detaille_dans_console=get_bool(
+                "COMPILATION_OS_AFFICHAGE_DETAILLE_DANS_CONSOLE", False
+            ),
             nom_fichier_parametres_compilation=get_str(
                 "COMPILATION_OS_NOM_FICHIER_PARAMETRES_COMPILATION",
                 "@parametres.pyUPSTIlatex.yaml",

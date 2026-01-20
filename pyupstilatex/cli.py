@@ -290,8 +290,14 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
         "sera traitée comme 'normal'."
     ),
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Mode test: affiche les actions sans les exécuter.",
+)
 @click.pass_context
-def compile(ctx, path, mode):
+def compile(ctx, path, mode, dry_run):
     """Compile un fichier .tex ou tous les fichiers d'un dossier."""
 
     from pathlib import Path
@@ -307,6 +313,10 @@ def compile(ctx, path, mode):
     if mode not in ("deep", "quick"):
         mode = "normal"
 
+    # On récupère la config pour gérer le niveau de verbosité
+    cfg = load_config()
+    affiche_details = cfg.compilation.affichage_detaille_dans_console
+
     # Titre
     msg.titre1(f"COMPILATION de {chemin}")
 
@@ -320,7 +330,7 @@ def compile(ctx, path, mode):
         doc = _check_path(ctx, chemin)
 
         # On lance la compilation
-        result, messages = doc.compile(mode=mode, verbose="normal")
+        result, messages = doc.compile(mode=mode, verbose="normal", dry_run=dry_run)
 
         # Affichage des différents messages
         msg.affiche_messages(messages, "resultat_item")
@@ -378,7 +388,7 @@ def compile(ctx, path, mode):
             compile_verbose = "messages"
         else:
             str_fichiers_a_traiter = f"{COLOR_GREEN}ce fichier{COLOR_RESET}"
-            compile_verbose = "complete"
+            compile_verbose = "normal"
 
         msg.titre2(
             f"Souhaitez-vous réellement compiler {str_fichiers_a_traiter} ? (O/N)"
@@ -404,11 +414,16 @@ def compile(ctx, path, mode):
 
                 if nb_documents > 1:
                     number_label = f"{idx:0{num_width}d}"
-                    msg.info(f"{number_label}/{nb_documents} - {doc['filename']}")
+                    msg.info(
+                        f"{COLOR_DARK_GRAY}{number_label}/{nb_documents} - "
+                        f"{COLOR_RESET}{doc['filename']}"
+                    )
 
                 # Lancer la compilation
                 document = UPSTILatexDocument.from_path(doc["path"], msg=msg)[0]
-                result, messages = document.compile(mode=mode, verbose=compile_verbose)
+                result, messages = document.compile(
+                    mode=mode, verbose=compile_verbose, dry_run=dry_run
+                )
 
                 # Message de conclusion pour ce fichier
                 if nb_documents == 1:
@@ -418,14 +433,15 @@ def compile(ctx, path, mode):
                     else:
                         msg.info("Échec de la compilation", flag="error")
                 else:
-                    if result:
-                        msg.resultat_item(
-                            "Compilation réussie", flag="success", last=True
-                        )
-                    else:
-                        msg.resultat_item(
-                            "Échec de la compilation", flag="error", last=True
-                        )
+                    if affiche_details:
+                        if result:
+                            msg.resultat_item(
+                                "Compilation réussie", flag="success", last=True
+                            )
+                        else:
+                            msg.resultat_item(
+                                "Échec de la compilation", flag="error", last=True
+                            )
 
         # Message de conclusion
         if nb_documents > 1:

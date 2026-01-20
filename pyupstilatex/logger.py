@@ -160,7 +160,12 @@ class MessageHandler:
         fmt = self._formatters.get(typ)
         if typ == "resultat_item":
             char = "└" if last else "├"
-            return fmt_generic(texte, flag, prefix=f"    {char}─ ", version="compact")
+            return fmt_generic(
+                texte,
+                flag,
+                prefix=f"    {COLOR_DARK_GRAY}{char}─{COLOR_RESET} ",
+                version="compact",
+            )
         return (
             fmt(texte or "", flag)
             if fmt

@@ -8,12 +8,13 @@ from slugify import slugify
 
 from .config import load_config
 from .filesystem import DocumentFile
-from .logger import MessageHandler, NoOpMessageHandler
-from .parsers import (
-    parse_metadonnees_tex,
-    parse_metadonnees_yaml,
-    parse_package_imports,
+from .handlers import (
+    DocumentVersionHandler,
+    HandlerUPSTIDocumentV1,
+    HandlerUPSTIDocumentV2,
 )
+from .logger import MessageHandler, NoOpMessageHandler
+from .parsers import parse_package_imports
 from .storage import FileSystemStorage, StorageProtocol
 from .utils import (
     check_types,
@@ -42,6 +43,7 @@ class UPSTILatexDocument:
     _zones: Optional[Dict] = field(default=None, init=False)
     _version: Optional[str] = field(default=None, init=False)
     _file: Optional[DocumentFile] = field(default=None, init=False)
+    _handler: Optional[DocumentVersionHandler] = field(default=None, init=False)
 
     def __post_init__(self):
         """Initialise l'accès fichier via DocumentFile."""
@@ -136,7 +138,7 @@ class UPSTILatexDocument:
         return self.get_compilation_parameters()[0]
 
     def compile(
-        self, mode: str = "normal", verbose: str = "complete"
+        self, mode: str = "normal", verbose: str = "normal", dry_run: bool = False
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le document LaTeX.
 
@@ -151,10 +153,12 @@ class UPSTILatexDocument:
         verbose : str, optional
             Niveau de verbosité pour les messages renvoyés par la méthode.
             Valeurs acceptées :
-            - "complete" : affiche tout.
-            - "normal" : affiche tout sauf les messages intermédiaires de succès.
-            - "errors" : affiche juste les erreurs et warning.
+            - "normal" : affiche tout.
+            - "messages" : affiche juste les erreurs et warning.
             - "silent" : n'affiche rien.
+        dry_run : bool, optional
+            Si True, exécute un "dry run" où les actions sont affichées sans être
+            réellement effectuées.
 
         Retour
         -----
@@ -170,14 +174,17 @@ class UPSTILatexDocument:
 
         # Normaliser le niveau de verbosité et le mode
         valid_modes = {"deep", "normal", "quick"}
-        valid_verbose = {"complete", "normal", "messages", "silent"}
+        valid_verbose = {"normal", "messages", "silent"}
+
+        # Pour éviter de toujours passer ces éléments en paramètre
         self._mode = mode if mode in valid_modes else "normal"
         self._verbose = verbose if verbose in valid_verbose else "normal"
+        self._dry_run = dry_run
 
         try:
 
             # Titre
-            if self._verbose in ["complete", "normal"]:
+            if self._verbose in ["normal"]:
                 self.msg.titre2("Préparation de la compilation")
 
             # 1- Vérification de l'intégrité du fichier
@@ -247,7 +254,7 @@ class UPSTILatexDocument:
                 )
 
             # Titre intermédiaire
-            if self._verbose in ["complete", "normal"]:
+            if self._verbose in ["normal"]:
                 self.msg.titre2("Compilation du document LaTeX")
 
             # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
@@ -257,7 +264,7 @@ class UPSTILatexDocument:
             )
 
             # Post-traitements
-            if self._verbose in ["complete", "normal"] and self._mode in [
+            if self._verbose in ["normal"] and self._mode in [
                 "deep",
                 "normal",
             ]:
@@ -282,6 +289,90 @@ class UPSTILatexDocument:
 
         # Si on est arrivé ici, c'est que tout s'est bien passé
         return True, errors
+
+    def set_metadonnee(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
+        """Ajoute ou modifie une métadonnée dans le document.
+
+        Délègue l'opération au handler spécifique à la version du document.
+        Pour UPSTI_Document_v1 : commande LaTeX \\UPSTImeta<key>{value}
+        Pour UPSTI_Document_v2 : entrée dans le bloc YAML
+
+        Paramètres
+        ----------
+        key : str
+            Nom de la métadonnée à ajouter.
+        value : any
+            Valeur de la métadonnée.
+
+        Retourne
+        --------
+        Tuple[bool, List[List[str]]]
+            (success, messages) où success indique si l'ajout a réussi,
+            et messages contient les infos/erreurs.
+
+        Exemples
+        --------
+        >>> doc.ajouter_metadonnee("titre", "Mon nouveau titre")
+        (True, [["Métadonnée 'titre' ajoutée avec succès.", "info"]])
+        """
+        return self._get_handler().set_metadonnee(key, value)
+
+    def delete_metadonnee(self, key: str) -> Tuple[bool, List[List[str]]]:
+        """Supprime une métadonnée existante.
+
+        Délègue l'opération au handler spécifique à la version du document.
+
+        Paramètres
+        ----------
+        key : str
+            Nom de la métadonnée à modifier.
+        value : any
+            Nouvelle valeur de la métadonnée.
+
+        Retourne
+        --------
+        Tuple[bool, List[List[str]]]
+            (success, messages) où success indique si la modification a réussi.
+
+        Exemples
+        --------
+        >>> doc.modifier_metadonnee("auteur", "Nouveau nom")
+        (True, [["Métadonnée 'auteur' modifiée avec succès.", "info"]])
+        """
+        return self._get_handler().delete_metadonnee(key)
+
+    def _get_handler(self) -> DocumentVersionHandler:
+        """Retourne le handler approprié selon la version (lazy initialization).
+
+        Le handler est créé la première fois que cette méthode est appelée,
+        après détection de la version du document. Les appels suivants
+        retournent l'instance en cache.
+
+        Retourne
+        --------
+        DocumentVersionHandler
+            L'instance du handler (HandlerUPSTIDocumentV1 ou HandlerUPSTIDocumentV2).
+
+        Raises
+        ------
+        ValueError
+            Si la version du document n'est pas supportée.
+        """
+        if self._handler is None:
+            version = self.version  # Détecte la version si pas encore fait
+
+            if version == "UPSTI_Document_v1":
+                self._handler = HandlerUPSTIDocumentV1(self)
+            elif version == "UPSTI_Document_v2":
+                self._handler = HandlerUPSTIDocumentV2(self)
+            else:
+                raise ValueError(
+                    f"Version non supportée: {version}. "
+                    "Les versions supportées sont : "
+                    "UPSTI_Document_v1, UPSTI_Document_v2"
+                )
+
+        return self._handler
 
     def _compilation_step(
         self,
@@ -313,7 +404,7 @@ class UPSTILatexDocument:
             Défaut : ["deep", "normal"].
         verbose : Optional[str], optional
             Niveau de verbosité pour l'affichage. Si None, utilise `self._verbose`.
-            Valeurs acceptées : "complete", "normal", "messages", "silent".
+            Valeurs acceptées : "normal", "messages", "silent".
             Défaut : None.
         affichage : str, optional
             Message à afficher avant l'exécution de l'étape.
@@ -333,18 +424,22 @@ class UPSTILatexDocument:
             de l'étape. L'exception contient la liste des messages d'erreur.
         """
         mode = mode or getattr(self, "_mode", "normal")
-        verbose = verbose or getattr(self, "_verbose", "complete")
+        verbose = verbose or getattr(self, "_verbose", "normal")
         format_last_message = bool(verbose != "messages")
+
+        # On récupère la config pour gérer le niveau de verbosité
+        cfg = load_config()
+        affiche_details = cfg.compilation.affichage_detaille_dans_console
 
         messages: List[List[str]] = []
         resultat = None
         if mode in mode_ok:
-            if verbose in ["complete", "normal"]:
+            if verbose in ["normal"]:
                 self.msg.info(affichage)
 
             resultat, messages = fonction()
 
-            if verbose in ["complete"] and len(messages) == 0:
+            if affiche_details and verbose in ["normal"] and len(messages) == 0:
                 messages.append(["OK !", "success"])
             self.msg.affiche_messages(
                 messages, "resultat_item", format_last=format_last_message
@@ -608,32 +703,33 @@ class UPSTILatexDocument:
             ]
 
         # 8. Tenter le renommage physique
-        try:
-            chemin_actuel.rename(nouveau_chemin)
-        except PermissionError as e:
-            return chemin_actuel.name, [
-                [
-                    f"Permission refusée lors du renommage: {e}. "
-                    "On conserve le nom de fichier initial.",
-                    "warning",
+        if not self._dry_run:
+            try:
+                chemin_actuel.rename(nouveau_chemin)
+            except PermissionError as e:
+                return chemin_actuel.name, [
+                    [
+                        f"Permission refusée lors du renommage: {e}. "
+                        "On conserve le nom de fichier initial.",
+                        "warning",
+                    ]
                 ]
-            ]
-        except FileExistsError as e:
-            return chemin_actuel.name, [
-                [
-                    f"Le fichier cible existe déjà: {e}. On conserve le nom de "
-                    "fichier initial.",
-                    "warning",
+            except FileExistsError as e:
+                return chemin_actuel.name, [
+                    [
+                        f"Le fichier cible existe déjà: {e}. On conserve le nom de "
+                        "fichier initial.",
+                        "warning",
+                    ]
                 ]
-            ]
-        except Exception as e:
-            return chemin_actuel.name, [
-                [
-                    f"Erreur lors du renommage: {e}. On conserve le nom de fichier "
-                    "initial.",
-                    "warning",
+            except Exception as e:
+                return chemin_actuel.name, [
+                    [
+                        f"Erreur lors du renommage: {e}. On conserve le nom de fichier "
+                        "initial.",
+                        "warning",
+                    ]
                 ]
-            ]
 
         # 9. Mise à jour de l'objet Document pour pointer vers le nouveau chemin
         try:
@@ -654,41 +750,45 @@ class UPSTILatexDocument:
             ]
 
         # 10. Suppression de tous les vieux fichiers liés (cache, compilés, etc.)
-        import glob
+        if not self._dry_run:
 
-        deleted_files: List[str] = []
-        failed_deletions: List[List[str]] = []
-        try:
-            parent = chemin_actuel.parent
-            pattern = glob.escape(chemin_actuel.stem) + "*"
+            import glob
 
-            for p in parent.glob(pattern):
-                # éviter de toucher le nouveau fichier
-                try:
-                    if p.resolve() == self.file.path.resolve():
-                        continue
-                except Exception:
-                    pass
+            deleted_files: List[str] = []
+            failed_deletions: List[List[str]] = []
+            try:
+                parent = chemin_actuel.parent
+                pattern = glob.escape(chemin_actuel.stem) + "*"
 
-                if p.is_file():
+                for p in parent.glob(pattern):
+                    # éviter de toucher le nouveau fichier
                     try:
-                        p.unlink()
-                        deleted_files.append(str(p.name))
-                    except Exception as e:
-                        failed_deletions.append(
-                            [f"Échec suppression {p.name}: {e}", "warning"]
-                        )
-        except Exception as e:
-            failed_deletions.append(
-                [
-                    f"Erreur lors de la suppression des fichiers liés: {e}",
-                    "warning",
-                ]
-            )
+                        if p.resolve() == self.file.path.resolve():
+                            continue
+                    except Exception:
+                        pass
 
-        messages: List[List[str]] = []
-        messages.extend(failed_deletions)
-        messages.append([f"Le fichier a été renommé : {nouveau_chemin.name}", "info"])
+                    if p.is_file():
+                        try:
+                            p.unlink()
+                            deleted_files.append(str(p.name))
+                        except Exception as e:
+                            failed_deletions.append(
+                                [f"Échec suppression {p.name}: {e}", "warning"]
+                            )
+            except Exception as e:
+                failed_deletions.append(
+                    [
+                        f"Erreur lors de la suppression des fichiers liés: {e}",
+                        "warning",
+                    ]
+                )
+
+            messages: List[List[str]] = []
+            messages.extend(failed_deletions)
+            messages.append(
+                [f"Le fichier a été renommé : {nouveau_chemin.name}", "info"]
+            )
 
         return str(nouveau_chemin), messages
 
@@ -739,10 +839,11 @@ class UPSTILatexDocument:
             / str(comp.dossier_sources_latex)
             / str(comp.dossier_sources_latex_images)
         )
-        try:
-            images_dir.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
+        if not self._dry_run:
+            try:
+                images_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
 
         # qrcode_filename = f"{self.file.stem}{comp.suffixe_nom_qrcode}.png"
         qrcode_filename = f"{comp.fichier_qrcode}.png"
@@ -751,11 +852,14 @@ class UPSTILatexDocument:
         # Génération du QRcode
         import qrcode
 
-        try:
-            # TODO : ici on pourrait faire un plus joli QRcode avec logo, couleurs, etc.
-            qrcode.make(url).save(qrcode_path)
-        except Exception:
-            return None, [["Erreur lors de la génération du QRcode.", "fatal_error"]]
+        if not self._dry_run:
+            try:
+                # TODO : ici on pourrait faire un plus joli QRcode avec logo,couleurs...
+                qrcode.make(url).save(qrcode_path)
+            except Exception:
+                return None, [
+                    ["Erreur lors de la génération du QRcode.", "fatal_error"]
+                ]
 
         return str(qrcode_path), []
 
@@ -783,7 +887,9 @@ class UPSTILatexDocument:
 
         if id_unique != id_unique_initiale:
 
-            # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+            if not self._dry_run:
+                # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+                pass
 
             if id_unique_initiale is None or id_unique_initiale == "":
                 message = f"L'id unique ({id_unique}) a été créé et ajouté au fichier."
@@ -816,7 +922,9 @@ class UPSTILatexDocument:
                     self._metadata["id_unique"]["valeur"] = nouvel_id_unique
 
                 # Il faut écrire le nouvel id dans le fichier tex
-                # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+                if not self._dry_run:
+                    # TODO : écrire la méthode qui permette d'ajouter l'id_unique
+                    pass
 
                 message = (
                     f"L'id unique n'était pas dans le bon format ({id_unique}). "
@@ -908,48 +1016,6 @@ class UPSTILatexDocument:
 
         return "N.I", [["Non implémenté.", "info"]]
 
-    def _parse_yaml_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Extrait les métadonnées depuis le front matter YAML (méthode interne).
-
-        Retourne
-        --------
-        tuple[Optional[Dict], List[List[str]]]
-            (metadata, messages) où messages est une liste de [message, flag].
-            Ne lève jamais d'exception : erreurs converties en messages.
-        """
-        try:
-            data, errors = parse_metadonnees_yaml(self.content) or {}
-            return data, errors
-        except Exception as e:
-            return None, [
-                [f"Erreur de lecture des métadonnées YAML: {e}", "fatal_error"]
-            ]
-
-    def _parse_tex_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
-        """Extrait les métadonnées depuis les commandes LaTeX v1 (méthode interne).
-
-        Retourne
-        --------
-        tuple[Optional[Dict], List[List[str]]]
-            (metadata, messages) où messages inclut un avertissement de version.
-            Ne lève jamais d'exception : erreurs converties en messages.
-        """
-        try:
-            data, parsing_errors = parse_metadonnees_tex(self.content)
-            # version_warning = [
-            #     [
-            #         "Ce document utilise une ancienne version de UPSTI_Document (v1)."
-            #         "Mettre à jour UPSTI_Document: pyupstilatex upgrade",
-            #         "info",
-            #     ]
-            # ]
-            # return data, version_warning + parsing_errors
-            return data, parsing_errors
-        except Exception as e:
-            return None, [
-                [f"Erreur de lecture des métadonnées LaTeX: {e}", "fatal_error"]
-            ]
-
     def get_metadata(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère et normalise les métadonnées du document.
 
@@ -968,58 +1034,47 @@ class UPSTILatexDocument:
         if self._metadata is not None:
             return self._metadata, []
 
-        # On reprend la version détectée, et on exécute le parser qui correspond
+        # Déléguer le parsing au handler approprié selon la version
+        try:
+            metadata, errors = self._get_handler().parse_metadonnees()
+        except ValueError as e:
+            # Version non supportée
+            return None, [[str(e), "fatal_error"]]
+
+        if metadata is None:
+            return None, errors
+
+        # Lire le fichier de paramètres de compilation pour override
+        custom_params, custom_errors = self._read_fichier_parametres_compilation()
+        if custom_errors:
+            # Ne garder que les erreurs réelles (pas les "info")
+            errors.extend([e for e in custom_errors if e[1] != "info"])
+
+        # Override des métadonnées si présentes dans le fichier de paramètres
+        if custom_params and "surcharge_metadonnees" in custom_params:
+            override_meta = custom_params["surcharge_metadonnees"]
+            if isinstance(override_meta, dict):
+                # Si metadata est None, initialiser un dict vide
+                if metadata is None:
+                    metadata = {}
+
+                # Merger : ajouter nouvelles clés et remplacer existantes
+                metadata.update(override_meta)
+                errors.append(
+                    [
+                        f"Métadonnées overridées depuis le fichier de paramètres "
+                        "(Métadonnée(s) changée(s) : "
+                        f"{', '.join(list(override_meta.keys()))})",
+                        "info",
+                    ]
+                )
+
+        # Récupérer la version pour _format_metadata
         version = self._version or self.version
-
-        # Associer chaque version à sa fonction de récupération
-        sources = {
-            "UPSTI_Document_v1": self._parse_tex_metadata,
-            "UPSTI_Document_v2": self._parse_yaml_metadata,
-        }
-
-        if version in sources:
-            metadata, errors = sources[version]()
-
-            if metadata is None:
-                return None, errors
-
-            # Lire le fichier de paramètres de compilation pour override
-            custom_params, custom_errors = self._read_fichier_parametres_compilation()
-            if custom_errors:
-                # Ne garder que les erreurs réelles (pas les "info")
-                errors.extend([e for e in custom_errors if e[1] != "info"])
-
-            # Override des métadonnées si présentes dans le fichier de paramètres
-            if custom_params and "surcharge_metadonnees" in custom_params:
-                override_meta = custom_params["surcharge_metadonnees"]
-                if isinstance(override_meta, dict):
-                    # Si metadata est None, initialiser un dict vide
-                    if metadata is None:
-                        metadata = {}
-
-                    # Merger : ajouter nouvelles clés et remplacer existantes
-                    metadata.update(override_meta)
-                    errors.append(
-                        [
-                            f"Métadonnées overridées depuis le fichier de paramètres "
-                            "(Métadonnée(s) changée(s) : "
-                            f"{', '.join(list(override_meta.keys()))})",
-                            "info",
-                        ]
-                    )
-
-            formatted, formatted_errors = self._format_metadata(
-                metadata, source=version
-            )
-            if formatted is not None:
-                self._metadata = formatted
-            return formatted, errors + formatted_errors
-
-        # Version non reconnue
-        return (
-            None,
-            [["Type de document non pris en charge par pyUPSTIlatex", "fatal_error"]],
-        )
+        formatted, formatted_errors = self._format_metadata(metadata, source=version)
+        if formatted is not None:
+            self._metadata = formatted
+        return formatted, errors + formatted_errors
 
     def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère les paramètres de compilation du document.
