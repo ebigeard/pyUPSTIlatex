@@ -1,3 +1,5 @@
+import inspect
+import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7,6 +9,7 @@ import yaml
 from slugify import slugify
 
 from .config import load_config
+from .exceptions import CompilationStepError
 from .filesystem import DocumentFile
 from .handlers import (
     DocumentVersionHandler,
@@ -22,14 +25,6 @@ from .utils import (
 )
 
 
-class CompilationStepError(Exception):
-    """Exception levée quand une étape de compilation échoue."""
-
-    def __init__(self, messages: List[List[str]]):
-        self.messages = messages
-        super().__init__()
-
-
 @dataclass
 class UPSTILatexDocument:
     source: str
@@ -39,8 +34,8 @@ class UPSTILatexDocument:
     msg: MessageHandler = field(default_factory=NoOpMessageHandler)
     _metadata: Optional[Dict] = field(default=None, init=False)
     _compilation_parameters: Optional[Dict] = field(default=None, init=False)
-    _commands: Optional[Dict] = field(default=None, init=False)
-    _zones: Optional[Dict] = field(default=None, init=False)
+    # _commands: Optional[Dict] = field(default=None, init=False)
+    # _zones: Optional[Dict] = field(default=None, init=False)
     _version: Optional[str] = field(default=None, init=False)
     _file: Optional[DocumentFile] = field(default=None, init=False)
     _handler: Optional[DocumentVersionHandler] = field(default=None, init=False)
@@ -177,14 +172,16 @@ class UPSTILatexDocument:
         valid_verbose = {"normal", "messages", "silent"}
 
         # Pour éviter de toujours passer ces éléments en paramètre
-        self._mode = mode if mode in valid_modes else "normal"
-        self._verbose = verbose if verbose in valid_verbose else "normal"
-        self._dry_run = dry_run
+        compilation_cli_options = {
+            "mode": mode if mode in valid_modes else "normal",
+            "verbose": verbose if verbose in valid_verbose else "normal",
+            "dry_run": dry_run,
+        }
 
         try:
 
             # Titre
-            if self._verbose in ["normal"]:
+            if compilation_cli_options["verbose"] in ["normal"]:
                 self.msg.titre2("Préparation de la compilation")
 
             # 1- Vérification de l'intégrité du fichier
@@ -192,6 +189,7 @@ class UPSTILatexDocument:
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Vérification de l'intégrité du fichier",
                 fonction=lambda: self.file.check_file("read"),
+                compilation_options=compilation_cli_options,
             )
 
             # 2- Vérification de la version
@@ -199,6 +197,7 @@ class UPSTILatexDocument:
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Détection de la version du document",
                 fonction=lambda: self.get_version(check_compatibilite=True),
+                compilation_options=compilation_cli_options,
             )
 
             # 3- Lecture des paramètres de compilation
@@ -206,18 +205,21 @@ class UPSTILatexDocument:
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Lecture des paramètres de compilation",
                 fonction=self._get_compilation_parameters_for_compilation,
+                compilation_options=compilation_cli_options,
             )
 
             # 4- Lecture des métadonnées
             self._compilation_step(
                 affichage="Lecture des métadonnées du fichier tex",
                 fonction=self.get_metadata,
+                compilation_options=compilation_cli_options,
             )
 
             # 5- Vérification et changement de l'id unique du document
             self._compilation_step(
                 affichage="Vérification de l'id unique du document",
                 fonction=self._check_id_unique,
+                compilation_options=compilation_cli_options,
             )
 
             # 6- Vérification et changement du nom du fichier
@@ -226,6 +228,7 @@ class UPSTILatexDocument:
                     mode_ok=["deep"],
                     affichage="Vérification du nom de fichier",
                     fonction=self._rename_file,
+                    compilation_options=compilation_cli_options,
                 )
 
             # 7- Générer le QRCode
@@ -233,6 +236,7 @@ class UPSTILatexDocument:
                 mode_ok=["deep"],
                 affichage="Génération du QR code du document",
                 fonction=self._generate_qrcode,
+                compilation_options=compilation_cli_options,
             )
 
             # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
@@ -241,6 +245,7 @@ class UPSTILatexDocument:
                     mode_ok=["deep"],
                     affichage="Génération du code latex à partir des métadonnées",
                     fonction=self._generate_latex_template,
+                    compilation_options=compilation_cli_options,
                 )
 
             # 9- Générer le fichier UPSTI_Document_v1 (si UPSTI_Document v2)
@@ -251,23 +256,23 @@ class UPSTILatexDocument:
                         "(pour la rétrocompatibilité)"
                     ),
                     fonction=self._generate_UPSTI_Document_v1_tex_file,
+                    compilation_options=compilation_cli_options,
                 )
 
             # Titre intermédiaire
-            if self._verbose in ["normal"]:
+            if compilation_cli_options["verbose"] in ["normal"]:
                 self.msg.titre2("Compilation du document LaTeX")
 
             # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
-            self._compilation_step(
-                mode_ok=["deep", "normal", "quick"],
-                fonction=self._compile_tex,
-            )
+            if compilation_cli_options["mode"] in ["deep", "normal", "quick"]:
+                compilation, messages_compilation = self._compile_tex(
+                    compilation_options=compilation_cli_options
+                )
 
             # Post-traitements
-            if self._verbose in ["normal"] and self._mode in [
-                "deep",
-                "normal",
-            ]:
+            if compilation_cli_options["verbose"] in [
+                "normal"
+            ] and compilation_cli_options["mode"] in ["deep", "normal"]:
                 self.msg.titre2("Post-traitements après compilation")
 
             # 11- Copie des fichiers dans le dossier cible
@@ -275,12 +280,14 @@ class UPSTILatexDocument:
                 self._compilation_step(
                     affichage="Copie des fichiers compilés dans le dossier cible",
                     fonction=self._copy_compiled_files,
+                    compilation_options=compilation_cli_options,
                 )
 
             # 12- Upload (création du fichier meta, du zip, upload et webhook)
             if self.compilation_parameters.get("upload", False):
                 self._compilation_step(
                     fonction=self._upload,
+                    compilation_options=compilation_cli_options,
                 )
 
         # On gère ici les étapes qui intterrompent la compilation
@@ -290,7 +297,7 @@ class UPSTILatexDocument:
         # Si on est arrivé ici, c'est que tout s'est bien passé
         return True, errors
 
-    def set_metadonnee(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
+    def set_metadata(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
         """Ajoute ou modifie une métadonnée dans le document.
 
         Délègue l'opération au handler spécifique à la version du document.
@@ -315,9 +322,9 @@ class UPSTILatexDocument:
         >>> doc.ajouter_metadonnee("titre", "Mon nouveau titre")
         (True, [["Métadonnée 'titre' ajoutée avec succès.", "info"]])
         """
-        return self._get_handler().set_metadonnee(key, value)
+        return self._get_handler().set_metadata(key, value)
 
-    def delete_metadonnee(self, key: str) -> Tuple[bool, List[List[str]]]:
+    def delete_metadata(self, key: str) -> Tuple[bool, List[List[str]]]:
         """Supprime une métadonnée existante.
 
         Délègue l'opération au handler spécifique à la version du document.
@@ -339,7 +346,7 @@ class UPSTILatexDocument:
         >>> doc.modifier_metadonnee("auteur", "Nouveau nom")
         (True, [["Métadonnée 'auteur' modifiée avec succès.", "info"]])
         """
-        return self._get_handler().delete_metadonnee(key)
+        return self._get_handler().delete_metadata(key)
 
     def _get_handler(self) -> DocumentVersionHandler:
         """Retourne le handler approprié selon la version (lazy initialization).
@@ -377,9 +384,8 @@ class UPSTILatexDocument:
     def _compilation_step(
         self,
         fonction: Callable,
-        mode: Optional[str] = None,
+        compilation_options: dict,
         mode_ok: list = ["deep", "normal"],
-        verbose: Optional[str] = None,
         affichage: str = "Étape de compilation",
     ) -> List[str]:
         """Exécute une étape de compilation en gérant l'affichage et les erreurs.
@@ -397,13 +403,15 @@ class UPSTILatexDocument:
             Fonction à exécuter pour cette étape. Doit retourner un tuple
             (resultat, messages) où resultat peut être None en cas d'erreur.
         mode : Optional[str], optional
-            Mode de compilation pour cette étape. Si None, utilise `self._mode`.
+            Mode de compilation pour cette étape. Si None, utilise
+                `compilation_cli_options["mode"]`.
             Défaut : None.
         mode_ok : list, optional
             Liste des modes autorisés pour exécuter cette étape.
             Défaut : ["deep", "normal"].
         verbose : Optional[str], optional
-            Niveau de verbosité pour l'affichage. Si None, utilise `self._verbose`.
+            Niveau de verbosité pour l'affichage. Si None, utilise
+                `compilation_cli_options["verbose"]`.
             Valeurs acceptées : "normal", "messages", "silent".
             Défaut : None.
         affichage : str, optional
@@ -423,9 +431,7 @@ class UPSTILatexDocument:
             Levée si la fonction retourne None comme résultat, indiquant un échec
             de l'étape. L'exception contient la liste des messages d'erreur.
         """
-        mode = mode or getattr(self, "_mode", "normal")
-        verbose = verbose or getattr(self, "_verbose", "normal")
-        format_last_message = bool(verbose != "messages")
+        format_last_message = bool(compilation_options["verbose"] != "messages")
 
         # On récupère la config pour gérer le niveau de verbosité
         cfg = load_config()
@@ -433,14 +439,30 @@ class UPSTILatexDocument:
 
         messages: List[List[str]] = []
         resultat = None
-        if mode in mode_ok:
-            if verbose in ["normal"]:
+        if compilation_options["mode"] in mode_ok:
+            if compilation_options["verbose"] in ["normal"]:
                 self.msg.info(affichage)
 
-            resultat, messages = fonction()
+            # Inspecter la signature pour savoir si on doit passer les options
+            try:
+                sig = inspect.signature(fonction)
+                if "compilation_options" in sig.parameters:
+                    resultat, messages = fonction(
+                        compilation_options=compilation_options
+                    )
+                else:
+                    resultat, messages = fonction()
+            except (ValueError, TypeError):
+                # Fallback si l'inspection échoue (ex: lambda, built-in)
+                resultat, messages = fonction()
 
-            if affiche_details and verbose in ["normal"] and len(messages) == 0:
+            if (
+                affiche_details
+                and compilation_options["verbose"] in ["normal"]
+                and len(messages) == 0
+            ):
                 messages.append(["OK !", "success"])
+
             self.msg.affiche_messages(
                 messages, "resultat_item", format_last=format_last_message
             )
@@ -485,7 +507,9 @@ class UPSTILatexDocument:
 
         return comp_params, []
 
-    def _rename_file(self) -> tuple[Optional[str], List[List[str]]]:
+    def _rename_file(
+        self, compilation_options: dict
+    ) -> tuple[Optional[str], List[List[str]]]:
         """Renomme le fichier source selon les métadonnées (méthode interne).
 
         Retourne
@@ -703,7 +727,7 @@ class UPSTILatexDocument:
             ]
 
         # 8. Tenter le renommage physique
-        if not self._dry_run:
+        if not compilation_options["dry_run"]:
             try:
                 chemin_actuel.rename(nouveau_chemin)
             except PermissionError as e:
@@ -750,9 +774,12 @@ class UPSTILatexDocument:
             ]
 
         # 10. Suppression de tous les vieux fichiers liés (cache, compilés, etc.)
-        if not self._dry_run:
+        if not compilation_options["dry_run"]:
 
             import glob
+
+            # TOCHK : il faudra peut-être simplement supprimer le fichier "compiled"
+            # créé lors de la compilation latex
 
             deleted_files: List[str] = []
             failed_deletions: List[List[str]] = []
@@ -792,7 +819,9 @@ class UPSTILatexDocument:
 
         return str(nouveau_chemin), messages
 
-    def _generate_qrcode(self) -> tuple[Optional[Dict], List[List[str]]]:
+    def _generate_qrcode(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère un qrcode vers la page d'un document, à partir de l'id_unique
         (méthode interne).
 
@@ -839,7 +868,7 @@ class UPSTILatexDocument:
             / str(comp.dossier_sources_latex)
             / str(comp.dossier_sources_latex_images)
         )
-        if not self._dry_run:
+        if not compilation_options["dry_run"]:
             try:
                 images_dir.mkdir(parents=True, exist_ok=True)
             except Exception:
@@ -852,7 +881,7 @@ class UPSTILatexDocument:
         # Génération du QRcode
         import qrcode
 
-        if not self._dry_run:
+        if not compilation_options["dry_run"]:
             try:
                 # TODO : ici on pourrait faire un plus joli QRcode avec logo,couleurs...
                 qrcode.make(url).save(qrcode_path)
@@ -863,7 +892,9 @@ class UPSTILatexDocument:
 
         return str(qrcode_path), []
 
-    def _check_id_unique(self) -> tuple[Optional[str], List[List[str]]]:
+    def _check_id_unique(
+        self, compilation_options: dict
+    ) -> tuple[Optional[str], List[List[str]]]:
         """Vérifie si l'id_unique est présent dans le fichier et est bien dans la bonne
         forme. Sinon, on écrit la nouvelle valeur (méthode interne).
 
@@ -874,6 +905,7 @@ class UPSTILatexDocument:
         """
         cfg = load_config()
         prefixe_id_unique: str = cfg.meta.id_document_prefixe
+        valeur_id_unique: Optional[str] = None
         etat_id_unique: str = "unchanged"
         message: Optional[str] = None
         flag: Optional[str] = None
@@ -887,9 +919,13 @@ class UPSTILatexDocument:
 
         if id_unique != id_unique_initiale:
 
-            if not self._dry_run:
-                # TODO : écrire la méthode qui permette d'ajouter l'id_unique
-                pass
+            if not compilation_options["dry_run"]:
+                success, change_id_unique_messages = self.set_metadata(
+                    "id_unique", id_unique
+                )
+
+                if not success:
+                    return None, change_id_unique_messages
 
             if id_unique_initiale is None or id_unique_initiale == "":
                 message = f"L'id unique ({id_unique}) a été créé et ajouté au fichier."
@@ -922,9 +958,13 @@ class UPSTILatexDocument:
                     self._metadata["id_unique"]["valeur"] = nouvel_id_unique
 
                 # Il faut écrire le nouvel id dans le fichier tex
-                if not self._dry_run:
-                    # TODO : écrire la méthode qui permette d'ajouter l'id_unique
-                    pass
+                if not compilation_options["dry_run"]:
+                    success, change_id_unique_messages = self.set_metadata(
+                        "id_unique", nouvel_id_unique
+                    )
+
+                    if not success:
+                        return None, change_id_unique_messages
 
                 message = (
                     f"L'id unique n'était pas dans le bon format ({id_unique}). "
@@ -946,9 +986,8 @@ class UPSTILatexDocument:
             if comp_params is not None:
                 self._compilation_parameters["etat_id_unique"] = etat_id_unique
 
-        if message and flag:
-            return valeur_id_unique, [[message, flag]]
-        return valeur_id_unique, []
+        valeur_id_unique = valeur_id_unique or id_unique
+        return valeur_id_unique, [[message, flag]] if message and flag else []
 
     def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
@@ -976,7 +1015,65 @@ class UPSTILatexDocument:
         # On génère un fichier LaTeX v1 à partir des métadonnées
         return "N.I", [["Non implémenté.", "info"]]
 
-    def _compile_tex(self) -> tuple[Optional[Dict], List[List[str]]]:
+    def _create_accessible_version(
+        self, code: str, compilation_options: dict
+    ) -> tuple[Optional[str], List[List[str]]]:
+        """Crée un fichier tex pour une version accessible.
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (result, messages) où result contient le nom du fichier tex
+            généré, et messages est une liste de [message, flag].
+        """
+        # TOCHK : au moment où on réfléchira à la p
+        versions_accessibles = {
+            "dys": {
+                "affichage": "dys",
+                "suffixe": "-dys",
+            },
+            "dv": {
+                "affichage": "déficients visuels",
+                "suffixe": "-dv",
+            },
+        }
+
+        if code not in versions_accessibles:
+            return None, [[f"Version accessible inconnue : {code}", "warning"]]
+        else:
+            nom_fichier_accessible = (
+                self.file.stem + versions_accessibles[code]["suffixe"]
+            )
+            fichier_accessible = {
+                "nom": nom_fichier_accessible,
+                "suffixe_affichage": versions_accessibles[code]["affichage"],
+            }
+
+            # Créer physiquement le fichier .tex pour la version accessible
+            nouveau_fichier = self.file.parent / f"{nom_fichier_accessible}.tex"
+
+            #
+            # TODO : modifier le fichier en dur ! En passant par le handler ?
+            #
+
+            if not compilation_options["dry_run"]:
+                try:
+                    shutil.copy(self.file.path, nouveau_fichier)
+                except Exception as e:
+                    return None, [
+                        [
+                            f"Erreur lors de la création de {nom_fichier_accessible}"
+                            ".tex : "
+                            f"{e}",
+                            "warning",
+                        ]
+                    ]
+
+            return fichier_accessible, []
+
+    def _compile_tex(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le fichier LaTeX (méthode interne).
 
         Retourne
@@ -985,6 +1082,202 @@ class UPSTILatexDocument:
             (result, messages) où result contient des informations sur la compilation,
             et messages est une liste de [message, flag].
         """
+
+        self.msg.info(
+            "Préparation de la compilation (environnement et fichiers à compiler)"
+        )
+        import subprocess
+
+        try:
+            subprocess.run(
+                ["pdflatex", "--version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            return None, [
+                ["pdflatex n'est pas installé ou introuvable.", "fatal_error"]
+            ]
+
+        liste_fichiers_a_compiler: List[Dict[str]] = [
+            {"nom": self.file.stem, "suffixe_affichage": ""}
+        ]
+        compilation_job_list: List[Dict] = []
+        messages: List[List[str]] = []
+
+        # Récupération de la config et des paramètres de compilation
+        cfg = load_config()
+        affiche_details = cfg.compilation.affichage_detaille_dans_console
+
+        versions_a_compiler = self._compilation_parameters.get(
+            "versions_a_compiler", []
+        )
+        versions_accessibles_a_compiler = self._compilation_parameters.get(
+            "versions_accessibles_a_compiler", []
+        )
+        est_un_document_a_trous = self._compilation_parameters.get(
+            "est_un_document_a_trous", False
+        )
+
+        # Il faut d'abord créer les sources tex des fichiers accessibles
+        for version in versions_accessibles_a_compiler:
+            # Créer le fichier
+            fichier_accessible, messages_fichiers_accessibles = (
+                self._create_accessible_version(
+                    version, compilation_options=compilation_options
+                )
+            )
+            if fichier_accessible is None:
+                messages.extend(messages_fichiers_accessibles)
+            else:
+                liste_fichiers_a_compiler.append(fichier_accessible)
+
+        # Création de la liste des tâches de compilation
+        if "eleve" in versions_a_compiler:
+            for fichier_a_compiler in liste_fichiers_a_compiler:
+
+                # Affichage
+                suffixe_affichage = fichier_a_compiler.get("suffixe_affichage", "")
+                if suffixe_affichage != "":
+                    suffixe_affichage = f" [{suffixe_affichage}]"
+
+                if est_un_document_a_trous:
+                    # Version à publier
+                    compilation_job_list.append(
+                        {
+                            "affichage_nom_version": f"à publier{suffixe_affichage}",
+                            "fichier_tex": fichier_a_compiler["nom"],
+                            "job_name": fichier_a_compiler["nom"],
+                            "option": "Pub",
+                        }
+                    )
+                    # Version élève (doc à trous)
+                    compilation_job_list.append(
+                        {
+                            "affichage_nom_version": (
+                                f"élève (doc à trous){suffixe_affichage}"
+                            ),
+                            "fichier_tex": fichier_a_compiler["nom"],
+                            "job_name": (
+                                f"{fichier_a_compiler['nom']}{cfg.compilation.suffixe_nom_fichier_a_trous}"
+                            ),
+                            "option": "E",
+                        }
+                    )
+                else:
+                    # Version élève
+                    compilation_job_list.append(
+                        {
+                            "affichage_nom_version": f"élève{suffixe_affichage}",
+                            "fichier_tex": fichier_a_compiler["nom"],
+                            "job_name": fichier_a_compiler["nom"],
+                            "option": "E",
+                        }
+                    )
+
+        if "prof" in versions_a_compiler:
+            compilation_job_list.append(
+                {
+                    "affichage_nom_version": "prof",
+                    "fichier_tex": self.file.stem,
+                    "job_name": (
+                        f"{self.file.stem}{cfg.compilation.suffixe_nom_fichier_prof}"
+                    ),
+                    "option": "P",
+                }
+            )
+
+        # Fin de la préparation des tâches de compilation
+        if (
+            affiche_details
+            and compilation_options["verbose"] in ["normal"]
+            and len(messages) == 0
+        ):
+            messages.append(["OK !", "success"])
+        self.msg.affiche_messages(messages, "resultat_item")
+
+        # Compilation des différents fichiers
+        nombre_compilations = cfg.compilation.nombre_compilations_latex
+        build_dir = cfg.compilation.dossier_compilation_latex
+        output_dir = self.file.parent
+
+        for fic in compilation_job_list:
+
+            self.msg.info(f"Compilation de la version {fic['affichage_nom_version']}")
+            #
+            # CONTINUE : faire la compilation de chaque fichier, et la génération des fichiers accessibles
+            # penser au dry_mode, et pour l'isntant, simplement copier le fichier en changeant le nom
+            #
+
+            # # Créer le dossier de sortie s'il n'existe pas
+            # os.makedirs(outdir, exist_ok=True)
+            nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
+            build_dir_path = output_dir / build_dir
+
+            # Créer build_dir_path s'il n'existe pas (sauf en dry_run)
+            # if not compilation_options["dry_run"]:
+            #     build_dir_path.mkdir(parents=True, exist_ok=True)
+
+            #     # Wrapper LaTeX temporaire
+            #     wrapper_path = output_dir / "en_cours_de_compilation.tex"
+            #     wrapper_content = (
+            #         rf"\def\ChoixDeVersion{{{fic['option']}}}"
+            #         "\n"
+            #         rf"\input{{{nom_fichier_tex_path.as_posix()}}}"
+            #     )
+            #     wrapper_path.write_text(wrapper_content, encoding="utf-8")
+
+            # C'est là qu'on fait la vraie compilation
+            for i in range(1, nombre_compilations + 1):
+
+                # command = [
+                #     "latexmk",
+                #     "-pdf",
+                #     "-synctex=1",
+                #     "-interaction=nonstopmode",
+                #     f"-jobname={fic['job_name']}",
+                #     f"-outdir={build_dir_path}",
+                #     f"{wrapper_path.as_posix()}",
+                # ]
+                command = [
+                    "pdflatex",
+                    "-quiet",
+                    "-synctex=1",
+                    "-interaction=nonstopmode",
+                    f"-job-name={fic['job_name']}",
+                    f"-output-directory={build_dir_path}",
+                    f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
+                ]
+                subprocess.run(command, check=True, cwd=output_dir)
+
+            # --- nettoyage optionnel du wrapper ---
+            # if not compilation_options["dry_run"]:
+            #     wrapper_path.unlink(missing_ok=True)
+
+            #
+            # CONTINUE : refaire un essai avec latexmk (qui tourne en boucle... faire un essai avec une simple compilation)
+            # Finir la gestion des messages et des erreurs
+            #
+
+            '''
+            message = (
+                "Compilation de la version "
+                + version_document["nom_version"]
+                + "."
+            )
+            if i > 1:
+                message = message.rstrip(".") + (f" (#{i}).")
+            self.environnement.affiche_message(
+                {
+                    "texte": message,
+                    "type": "info",
+                    "verbose": options["verbose"],
+                }
+            )
+            os.system(commande)
+            '''
+
         # On compile le fichier LaTeX (pdflatex, xelatex, lualatex, etc.)
         return "N.I", [["Non implémenté.", "info"]]
 
@@ -1036,7 +1329,7 @@ class UPSTILatexDocument:
 
         # Déléguer le parsing au handler approprié selon la version
         try:
-            metadata, errors = self._get_handler().parse_metadonnees()
+            metadata, errors = self._get_handler().parse_metadata()
         except ValueError as e:
             # Version non supportée
             return None, [[str(e), "fatal_error"]]

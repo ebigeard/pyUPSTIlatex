@@ -9,7 +9,8 @@ le code dans la classe principale UPSTILatexDocument.
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
-from .parsers import parse_metadonnees_tex, parse_metadonnees_yaml
+from .parsers import find_tex_entity, parse_metadata_tex, parse_metadata_yaml
+from .utils import read_json_config
 
 if TYPE_CHECKING:
     from .document import UPSTILatexDocument
@@ -34,7 +35,7 @@ class DocumentVersionHandler(ABC):
         self.document = document
 
     @abstractmethod
-    def parse_metadonnees(self) -> Tuple[Optional[Dict], List[List[str]]]:
+    def parse_metadata(self) -> Tuple[Optional[Dict], List[List[str]]]:
         """Parse les métadonnées selon le format de la version.
 
         Retourne
@@ -46,7 +47,7 @@ class DocumentVersionHandler(ABC):
         pass
 
     @abstractmethod
-    def set_metadonnee(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
+    def set_metadata(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
         """Ajoute ou modifie une métadonnée dans le document.
 
         Paramètres
@@ -64,7 +65,7 @@ class DocumentVersionHandler(ABC):
         pass
 
     @abstractmethod
-    def delete_metadonnee(self, key: str) -> Tuple[bool, List[List[str]]]:
+    def delete_metadata(self, key: str) -> Tuple[bool, List[List[str]]]:
         """Supprime une métadonnée du document.
 
         Paramètres
@@ -87,7 +88,7 @@ class HandlerUPSTIDocumentV1(DocumentVersionHandler):
     sous forme de commandes personnalisées (\\UPSTImetaXXX{...}).
     """
 
-    def parse_metadonnees(self) -> Tuple[Optional[Dict], List[List[str]]]:
+    def parse_metadata(self) -> Tuple[Optional[Dict], List[List[str]]]:
         """Parse les métadonnées depuis le contenu LaTeX.
 
         Utilise le parser LaTeX pour extraire les commandes \\UPSTImetaXXX.
@@ -97,13 +98,15 @@ class HandlerUPSTIDocumentV1(DocumentVersionHandler):
         Tuple[Optional[Dict], List[List[str]]]
             Dictionnaire des métadonnées extraites et liste de messages.
         """
-        return parse_metadonnees_tex(self.document.content)
+        return parse_metadata_tex(self.document.content)
 
-    def set_metadonnee(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
-        """Ajoute une métadonnée en insérant une commande LaTeX.
+    def set_metadata(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
+        """Ajoute ou modifie une métadonnée en insérant/modifiant une commande LaTeX.
 
-        Pour les documents v1, cela signifie ajouter une ligne du type :
-        \\UPSTImeta<key>{<value>}
+        Pour les documents v1, recherche la commande correspondant à `key` via
+        la configuration JSON (metadonnee[key]["parametres"]["tex_key"]).
+        Si la commande existe déjà (ligne non commentée), elle est modifiée.
+        Sinon, elle est ajoutée en haut du fichier.
 
         Paramètres
         ----------
@@ -115,59 +118,120 @@ class HandlerUPSTIDocumentV1(DocumentVersionHandler):
         Retourne
         --------
         Tuple[bool, List[List[str]]]
-            (True, []) si succès, (False, errors) sinon.
+            (True, messages) si succès, (False, errors) sinon.
         """
         errors: List[List[str]] = []
 
         try:
+            # 1. Charger la config pour obtenir tex_key
+            cfg, cfg_errors = read_json_config()
+            if cfg_errors:
+                return False, cfg_errors
+            if cfg is None:
+                errors.append(
+                    ["Configuration JSON introuvable ou invalide.", "fatal_error"]
+                )
+                return False, errors
+
+            cfg_meta = cfg.get("metadonnee", {})
+            meta_config = cfg_meta.get(key)
+            if not meta_config:
+                errors.append(
+                    [
+                        f"La métadonnée '{key}' n'est pas définie "
+                        "dans la configuration.",
+                        "error",
+                    ]
+                )
+                return False, errors
+
+            params = meta_config.get("parametres", {})
+            tex_key = params.get("tex_key")
+            if not tex_key:
+                errors.append(
+                    [
+                        f"La métadonnée '{key}' n'a pas de 'tex_key' défini dans "
+                        "la configuration.",
+                        "error",
+                    ]
+                )
+                return False, errors
+
+            # 2. Vérifier si la commande existe déjà
             content = self.document.content
+            existing = find_tex_entity(content, tex_key, kind="command_declaration")
 
-            # Vérifier si la métadonnée existe déjà
-            meta_pattern = f"\\UPSTImeta{key}"
-            if meta_pattern in content:
-                errors.append(
-                    [
-                        f"La métadonnée '{key}' existe déjà. "
-                        "Utilisez modifier_metadonnee pour la changer.",
-                        "error",
-                    ]
-                )
-                return False, errors
+            # 3. Construire la nouvelle déclaration
+            new_declaration = f"\\newcommand{{\\{tex_key}}}{{{value}}}\n"
 
-            # Trouver l'endroit approprié pour insérer la métadonnée
-            # (après \\documentclass et avant \\begin{document})
-            begin_doc_pos = content.find("\\begin{document}")
-            if begin_doc_pos == -1:
-                errors.append(
-                    [
-                        "Impossible de trouver \\begin{document} dans le fichier.",
-                        "error",
-                    ]
-                )
-                return False, errors
+            if existing:
+                # La commande existe : on la remplace
+                # Trouver la ligne contenant cette déclaration
+                lines = content.splitlines(keepends=True)
+                new_lines = []
+                replaced = False
 
-            # Construire la nouvelle ligne de métadonnée
-            new_meta_line = f"\\UPSTImeta{key}{{{value}}}\n"
+                for line in lines:
+                    # Ignorer les lignes commentées
+                    stripped = line.lstrip()
+                    if stripped.startswith("%"):
+                        new_lines.append(line)
+                        continue
 
-            # Insérer avant \begin{document}
-            new_content = (
-                content[:begin_doc_pos] + new_meta_line + content[begin_doc_pos:]
-            )
+                    # Vérifier si la ligne contient la déclaration
+                    line_parsed = find_tex_entity(
+                        line, tex_key, kind="command_declaration"
+                    )
+                    if line_parsed and not replaced:
+                        # Remplacer cette ligne
+                        new_lines.append(new_declaration)
+                        replaced = True
+                    else:
+                        new_lines.append(line)
 
-            # Écrire le nouveau contenu
-            self.document.file.write(new_content)
+                new_content = "".join(new_lines)
+                message = f"Métadonnée '{key}' (\\{tex_key}) modifiée avec succès."
 
-            # Invalider le cache des métadonnées
+            else:
+                # La commande n'existe pas : on l'insère après \usepackage{...}}
+                lines = content.splitlines(keepends=True)
+                new_lines = []
+                inserted = False
+
+                for line in lines:
+                    new_lines.append(line)
+
+                    # Chercher \usepackage ou \RequirePackage{UPSTI_Document}
+                    if not inserted and not line.lstrip().startswith("%"):
+                        if "\\usepackage" in line or "\\RequirePackage" in line:
+                            if "UPSTI_Document" in line:
+                                # Insérer la nouvelle commande juste après
+                                new_lines.append(new_declaration)
+                                inserted = True
+
+                if not inserted:
+                    # Si on n'a pas trouvé le package, on insère en haut du fichier
+                    new_lines.insert(0, new_declaration)
+
+                new_content = "".join(new_lines)
+                message = f"Métadonnée '{key}' (\\{tex_key}) ajoutée avec succès."
+
+            # 4. Écrire le nouveau contenu
+            self.document.storage.write_text(self.document.source, new_content)
+
+            # 5. Invalider le cache des métadonnées
             self.document._metadata = None
 
-            errors.append([f"Métadonnée '{key}' ajoutée avec succès.", "info"])
+            errors.append([message, "info"])
             return True, errors
 
         except Exception as e:
-            errors.append([f"Erreur lors de l'ajout de la métadonnée: {e}", "error"])
+            errors.append(
+                [f"Erreur lors de l'ajout/modification de la métadonnée: {e}", "error"]
+            )
             return False, errors
 
-    def delete_metadonnee(self, key: str) -> Tuple[bool, List[List[str]]]:
+    def delete_metadata(self, key: str) -> Tuple[bool, List[List[str]]]:
         """Supprime une métadonnée en retirant la commande LaTeX.
 
         Paramètres
@@ -220,7 +284,7 @@ class HandlerUPSTIDocumentV2(DocumentVersionHandler):
     (front-matter) au début du fichier.
     """
 
-    def parse_metadonnees(self) -> Tuple[Optional[Dict], List[List[str]]]:
+    def parse_metadata(self) -> Tuple[Optional[Dict], List[List[str]]]:
         """Parse les métadonnées depuis le front-matter YAML.
 
         Utilise le parser YAML pour extraire les métadonnées du bloc
@@ -231,9 +295,9 @@ class HandlerUPSTIDocumentV2(DocumentVersionHandler):
         Tuple[Optional[Dict], List[List[str]]]
             Dictionnaire des métadonnées extraites et liste de messages.
         """
-        return parse_metadonnees_yaml(self.document.content)
+        return parse_metadata_yaml(self.document.content)
 
-    def set_metadonnee(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
+    def set_metadata(self, key: str, value: any) -> Tuple[bool, List[List[str]]]:
         """Ajoute une métadonnée dans le bloc YAML.
 
         Paramètres
@@ -310,7 +374,7 @@ class HandlerUPSTIDocumentV2(DocumentVersionHandler):
             errors.append([f"Erreur lors de l'ajout de la métadonnée: {e}", "error"])
             return False, errors
 
-    def delete_metadonnee(self, key: str) -> Tuple[bool, List[List[str]]]:
+    def delete_metadata(self, key: str) -> Tuple[bool, List[List[str]]]:
         """Supprime une métadonnée du bloc YAML.
 
         Paramètres

@@ -2,6 +2,10 @@
 
 Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
 
+Utiliser latexmk pour la compilation LaTeX
+
+Changer UPSTI_Document_v2 en upsti-latex
+
 ## En cours
 
 - Paramètres
@@ -28,6 +32,11 @@ Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la 
 ## Fonctionnalités
 
 - [ ] Faire un script plus propre de conception de poly de TD : ajout d'une meta : is_in_poly = True/False, compilation dans un seul fichier tex, création de la table des matieres, etc... ou bien on conserve l'étape de transition par le fichier xml... L'idée serait de faire un seul poly en compilant directement les contenus des fichiers tex, sans rajouter de pages blanches, du coup...
+
+### Template LaTeX v3
+
+- utiliser jinja 2 ?
+- Faire un dossier de templates par défaut avec possibilité d'override (avec les images aussi, et les packages)
 
 ### Migration -> UPSTIv2
 

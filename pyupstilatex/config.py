@@ -34,9 +34,9 @@ __all__ = [
     "MetaConfig",
     "CompilationConfig",
     "TraitementParLotConfig",
+    "PolyTDConfig",
     "FTPConfig",
     "SiteConfig",
-    "PolyTDConfig",
     "AppConfig",
     "load_config",
 ]
@@ -158,6 +158,7 @@ class CompilationConfig:
     dossier_cible_par_rapport_au_fichier_tex: str
     copier_fichier_version: bool
     format_nom_fichier_version: str
+    dossier_compilation_latex: str
     dossier_sources_latex: str
     dossier_sources_latex_images: str
     dossier_tmp_pour_zip: str
@@ -219,6 +220,9 @@ class CompilationConfig:
             format_nom_fichier_version=get_str(
                 "COMPILATION_OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
             ),
+            dossier_compilation_latex=get_str(
+                "COMPILATION_OS_DOSSIER_COMPILATION_LATEX", "build"
+            ),
             dossier_sources_latex=get_str(
                 "COMPILATION_OS_DOSSIER_SOURCES_LATEX", "src"
             ),
@@ -241,6 +245,35 @@ class CompilationConfig:
                 "COMPILATION_OS_SUFFIXE_NOM_SOURCES", "-sources"
             ),
             fichier_qrcode=get_str("COMPILATION_OS_FICHIER_QRCODE", "qrcode"),
+        )
+
+
+@dataclass(frozen=True)
+class PolyTDConfig:
+    nombre_de_pages_par_feuille: int
+    recto_verso: bool
+    dossier_pour_poly_td: str
+    nom_fichier_xml_poly: str
+    suffixe_poly_td: str
+    template_page_de_garde: Path
+
+    @classmethod
+    def from_env(cls) -> "PolyTDConfig":
+        return cls(
+            nombre_de_pages_par_feuille=get_int(
+                "POLY_TD_NOMBRE_DE_PAGES_PAR_FEUILLE", 2
+            )
+            or 2,
+            recto_verso=get_bool("POLY_TD_RECTO_VERSO", True),
+            dossier_pour_poly_td=get_str("POLY_TD_DOSSIER_POUR_POLY_TD", "_poly")
+            or "_poly",
+            nom_fichier_xml_poly=get_str("POLY_TD_NOM_FICHIER_XML_POLY", "poly.xml")
+            or "poly.xml",
+            suffixe_poly_td=get_str("POLY_TD_SUFFIXE_POLY_TD", "-polyTD") or "-polyTD",
+            template_page_de_garde=get_path(
+                "POLY_TD_TEMPLATE_PAGE_DE_GARDE",
+                "templates/page_de_garde_poly_TD.template.tex",
+            ),
         )
 
 
@@ -299,35 +332,6 @@ class SiteConfig:
             webhook_upload_url=get_str("SITE_WEBHOOK_UPLOAD_URL", "webhook_upload_url"),
             document_url_pattern=get_str(
                 "SITE_DOCUMENT_URL_PATTERN", "document_url_pattern"
-            ),
-        )
-
-
-@dataclass(frozen=True)
-class PolyTDConfig:
-    nombre_de_pages_par_feuille: int
-    recto_verso: bool
-    dossier_pour_poly_td: str
-    nom_fichier_xml_poly: str
-    suffixe_poly_td: str
-    template_page_de_garde: Path
-
-    @classmethod
-    def from_env(cls) -> "PolyTDConfig":
-        return cls(
-            nombre_de_pages_par_feuille=get_int(
-                "POLY_TD_NOMBRE_DE_PAGES_PAR_FEUILLE", 2
-            )
-            or 2,
-            recto_verso=get_bool("POLY_TD_RECTO_VERSO", True),
-            dossier_pour_poly_td=get_str("POLY_TD_DOSSIER_POUR_POLY_TD", "_poly")
-            or "_poly",
-            nom_fichier_xml_poly=get_str("POLY_TD_NOM_FICHIER_XML_POLY", "poly.xml")
-            or "poly.xml",
-            suffixe_poly_td=get_str("POLY_TD_SUFFIXE_POLY_TD", "-polyTD") or "-polyTD",
-            template_page_de_garde=get_path(
-                "POLY_TD_TEMPLATE_PAGE_DE_GARDE",
-                "templates/page_de_garde_poly_TD.template.tex",
             ),
         )
 

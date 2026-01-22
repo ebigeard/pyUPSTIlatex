@@ -6,7 +6,7 @@ import yaml
 from .utils import read_json_config
 
 
-def parse_metadonnees_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
+def parse_metadata_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
     """
     Extrait et parse le YAML contenu dans la zone
     %### BEGIN metadonnees_yaml ### ... %### END metadonnees_yaml ###
@@ -66,7 +66,7 @@ def parse_metadonnees_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
     return data, errors
 
 
-def parse_metadonnees_tex(
+def parse_metadata_tex(
     text: str, tex_names: Optional[List[str]] = None
 ) -> Tuple[Dict[str, Any], List[List[str]]]:
     """

@@ -18,7 +18,7 @@ versions:
   - eleve
 versions_accessibles:
   - dys
-  - malvoyants
+  - dv
 est_un_document_a_trous: true
 copier_pdf_dans_dossier_cible: true
 upload: true
