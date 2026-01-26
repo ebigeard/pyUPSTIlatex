@@ -10,9 +10,6 @@
   - Prévoir un fichier pyUPSTIlatex-custom.json
   - Prévoir aussi une classe UPSTILatexDocumentCustom
 
-- LaTeX
-  - Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
-
 ## upsti-latex
 
 ### A terminer
@@ -34,10 +31,14 @@
 
 ## LaTeX
 
-### Template upsti-latex
+### création des input tex
 
 - utiliser jinja 2 ?
 - Faire un dossier de templates par défaut avec possibilité d'override (avec les images aussi, et les packages) et possibilité de spécifi la variante dans le fichier YAML (d'abord on regarde si le nom du template spécifié est un sous_dossier de templates\custom_EB, sinon, on regarde dans template\defaut). On peut spécifier le nom du template dans le .env ou dans le .YAML, et la variante du template (colle1, colle2, cours1, etc...) dans le fichier YAML uniqument.
+
+### Template upsti-latex
+
+- Penser à une difficulté (1,2,3) et à la possibilité de préciser si la question doit savoir être traitée !
 
 ### Déploiement
 

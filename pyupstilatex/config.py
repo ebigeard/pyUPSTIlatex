@@ -313,6 +313,10 @@ class FTPConfig:
     password: str
     host: str
     port: int
+    timeout: int
+    # Mode local (on remplace le stockage FTP par un stockage local)
+    mode_local: bool
+    mode_local_dossier: str
 
     @classmethod
     def from_env(cls) -> "FTPConfig":
@@ -322,6 +326,10 @@ class FTPConfig:
             password=get_str("FTP_PASSWORD", "ftp_pwd"),
             host=get_str("FTP_HOST", "ftp_host"),
             port=get_int("FTP_PORT", 21),
+            timeout=get_int("FTP_TIMEOUT", 30),
+            # Mode local (on remplace le stockage FTP par un stockage local)
+            mode_local=get_bool("FTP_MODE_LOCAL", False),
+            mode_local_dossier=get_str("FTP_MODE_LOCAL_DOSSIER", ""),
         )
 
 
@@ -329,16 +337,14 @@ class FTPConfig:
 class SiteConfig:
     """Valeurs par défaut pour la gestion du site, provenant du .env"""
 
-    passkey: str
-    endpoint_get_meta: str
+    secret_key: str
     webhook_upload_url: str
     document_url_pattern: str
 
     @classmethod
     def from_env(cls) -> "SiteConfig":
         return cls(
-            passkey=get_str("SITE_PASSKEY", "passkey"),
-            endpoint_get_meta=get_str("SITE_ENDPOINT_GET_META", "endpoint_get_meta"),
+            secret_key=get_str("SITE_SECRET_KEY", "passkey"),
             webhook_upload_url=get_str("SITE_WEBHOOK_UPLOAD_URL", "webhook_upload_url"),
             document_url_pattern=get_str(
                 "SITE_DOCUMENT_URL_PATTERN", "document_url_pattern"

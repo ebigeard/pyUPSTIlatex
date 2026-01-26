@@ -238,7 +238,7 @@ class UPSTILatexDocument:
                 self.msg.titre2("Préparation de la compilation")
 
             # 1- Vérification de l'intégrité du fichier
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Vérification de l'intégrité du fichier",
                 fonction=lambda: self.file.check_file("read"),
@@ -247,7 +247,7 @@ class UPSTILatexDocument:
             messages_compilation.extend(messages)
 
             # 2- Vérification de la version
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Détection de la version du document",
                 fonction=lambda: self.get_version(check_compatibilite=True),
@@ -256,16 +256,16 @@ class UPSTILatexDocument:
             messages_compilation.extend(messages)
 
             # 3- Lecture des paramètres de compilation
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Lecture des paramètres de compilation",
-                fonction=self._get_compilation_parameters_for_compilation,
+                fonction=self._cp_get_compilation_parameters,
                 compilation_options=compilation_cli_options,
             )
             messages_compilation.extend(messages)
 
             # 4- Lecture des métadonnées
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 affichage="Lecture des métadonnées du fichier tex",
                 fonction=self.get_metadata,
                 compilation_options=compilation_cli_options,
@@ -273,50 +273,50 @@ class UPSTILatexDocument:
             messages_compilation.extend(messages)
 
             # 5- Vérification et changement de l'id unique du document
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 affichage="Vérification de l'id unique du document",
-                fonction=self._check_id_unique,
+                fonction=self._cp_check_id_unique,
                 compilation_options=compilation_cli_options,
             )
             messages_compilation.extend(messages)
 
             # 6- Vérification et changement du nom du fichier
             if self.compilation_parameters.get("renommer_automatiquement", False):
-                resultat, messages = self._compilation_step(
+                resultat, messages = self._cp_step(
                     mode_ok=["deep"],
                     affichage="Vérification du nom de fichier",
-                    fonction=self._rename_file,
+                    fonction=self._cp_rename_file,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
 
             # 7- Générer le QRCode
-            resultat, messages = self._compilation_step(
+            resultat, messages = self._cp_step(
                 mode_ok=["deep"],
                 affichage="Génération du QR code du document",
-                fonction=self._generate_qrcode,
+                fonction=self._cp_generate_qrcode,
                 compilation_options=compilation_cli_options,
             )
             messages_compilation.extend(messages)
 
             # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
             if self.version == "UPSTI_Document_v2":
-                resultat, messages = self._compilation_step(
+                resultat, messages = self._cp_step(
                     mode_ok=["deep"],
                     affichage="Génération du code latex à partir des métadonnées",
-                    fonction=self._generate_latex_template,
+                    fonction=self._cp_generate_latex_template,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
 
             # 9- Générer le fichier UPSTI_Document_v1 (si UPSTI_Document v2)
             if self.version == "UPSTI_Document_v2":
-                resultat, messages = self._compilation_step(
+                resultat, messages = self._cp_step(
                     affichage=(
                         "Création du fichier tex UPSTI_Document_v1 "
                         "(pour la rétrocompatibilité)"
                     ),
-                    fonction=self._generate_UPSTI_Document_v1_tex_file,
+                    fonction=self._cp_generate_UPSTI_Document_v1_tex_file,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
@@ -327,8 +327,10 @@ class UPSTILatexDocument:
 
             # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
             if compilation_cli_options["mode"] in ["deep", "normal", "quick"]:
-                resultat_compilation, messages_compilation_tex = self._compile_tex(
-                    compilation_options=compilation_cli_options
+                resultat_compilation, messages_compilation_tex = (
+                    self._cp_compile_tex_file(
+                        compilation_options=compilation_cli_options
+                    )
                 )
                 messages_compilation.extend(messages_compilation_tex)
 
@@ -350,48 +352,57 @@ class UPSTILatexDocument:
 
             # 11- Copie des fichiers dans le dossier cible
             if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
-                resultat, messages = self._compilation_step(
+                resultat, messages = self._cp_step(
                     affichage="Copie des fichiers compilés dans le dossier cible",
-                    fonction=self._copy_files,
+                    fonction=self._cp_copy_files,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
 
             # 12- Fin du post traitement
-            compilation_cli_options["dry_run"] = False
+            # DEBUG
+            # compilation_cli_options["dry_run"] = False
 
             if self.compilation_parameters.get("upload", False):
 
                 # 12a- Création du fichier zip des fichiers
-                resultat, messages = self._compilation_step(
+                resultat, messages = self._cp_step(
                     affichage="Création du fichier zip",
-                    fonction=self._create_zip,
+                    fonction=self._cp_create_zip,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
 
                 # 12b- Création du fichier meta à uploader
-                fichier_meta, messages = self._compilation_step(
+                fichier_meta_created, messages = self._cp_step(
                     affichage="Création du fichier de synthèse JSON à uploader",
-                    fonction=self._create_info_file,
+                    fonction=self._cp_create_info_file,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
 
                 # 12c- Upload des fichiers sur le FTP
-                resultat, messages = self._compilation_step(
-                    affichage="Upload des fichiers sur le FTP",
-                    fonction=lambda: self._upload(
-                        infos=fichier_meta, compilation_options=compilation_cli_options
-                    ),
-                    compilation_options=compilation_cli_options,
-                )
-                messages_compilation.extend(messages)
+                if fichier_meta_created:
+                    resultat_upload, messages = self._cp_step(
+                        affichage="Upload des fichiers sur le FTP",
+                        fonction=self._cp_upload,
+                        compilation_options=compilation_cli_options,
+                    )
+                    messages_compilation.extend(messages)
 
                 # 12d- Webhook
-                resultat, messages = self._compilation_step(
-                    affichage="Déclenchement du webhook",
-                    fonction=self._webhook_call,
+                if fichier_meta_created and resultat_upload:
+                    resultat, messages = self._cp_step(
+                        affichage="Déclenchement du webhook",
+                        fonction=self._cp_webhook_call,
+                        compilation_options=compilation_cli_options,
+                    )
+                    messages_compilation.extend(messages)
+
+                # 12e- Nettoyage de fin de compilation
+                resultat, messages = self._cp_step(
+                    affichage="Nettoyage des fichiers temporaires",
+                    fonction=self._cp_clean_temp_after_compilation,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
@@ -400,8 +411,8 @@ class UPSTILatexDocument:
         except CompilationStepError:
             return "error", messages_compilation
 
-        # Déterminer le statut final : vérifier à la fois le statut de _compile_tex
-        # et les flags dans tous les messages
+        # Déterminer le statut final : vérifier à la fois le statut de
+        # _cp_compile_tex_file et les flags dans tous les messages
         has_warning = any(
             isinstance(m, (list, tuple)) and len(m) >= 2 and m[1] == "warning"
             for m in messages_compilation
@@ -656,7 +667,7 @@ class UPSTILatexDocument:
     # MÉTHODES PRIVÉES : ORCHESTRATION DE LA COMPILATION
     # =========================================================================
 
-    def _compilation_step(
+    def _cp_step(
         self,
         fonction: Callable,
         compilation_options: dict,
@@ -749,7 +760,7 @@ class UPSTILatexDocument:
 
         return resultat, messages
 
-    def _get_compilation_parameters_for_compilation(
+    def _cp_get_compilation_parameters(
         self,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère les paramètres de compilation adaptés pour la compilation
@@ -783,7 +794,7 @@ class UPSTILatexDocument:
 
         return comp_params, []
 
-    def _rename_file(
+    def _cp_rename_file(
         self, compilation_options: dict
     ) -> tuple[Optional[str], List[List[str]]]:
         """Renomme le fichier source selon les métadonnées (méthode interne).
@@ -1124,7 +1135,7 @@ class UPSTILatexDocument:
 
     # --- Génération de fichiers annexes ---
 
-    def _generate_qrcode(
+    def _cp_generate_qrcode(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère un qrcode vers la page d'un document, à partir de l'id_unique
@@ -1197,7 +1208,7 @@ class UPSTILatexDocument:
 
         return str(qrcode_path), []
 
-    def _check_id_unique(
+    def _cp_check_id_unique(
         self, compilation_options: dict
     ) -> tuple[Optional[str], List[List[str]]]:
         """Vérifie si l'id_unique est présent dans le fichier et est bien dans la bonne
@@ -1294,7 +1305,7 @@ class UPSTILatexDocument:
         valeur_id_unique = valeur_id_unique or id_unique
         return valeur_id_unique, [[message, flag]] if message and flag else []
 
-    def _generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
+    def _cp_generate_latex_template(self) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère le code LaTeX complet à partir des métadonnées (méthode interne).
 
         Retourne
@@ -1306,7 +1317,7 @@ class UPSTILatexDocument:
         # On génère le code LaTeX complet à partir des métadonnées
         return None, [["Non implémenté.", "info"]]
 
-    def _generate_UPSTI_Document_v1_tex_file(
+    def _cp_generate_UPSTI_Document_v1_tex_file(
         self,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère un fichier LaTeX v1 pour rétrocompatibilité (méthode interne).
@@ -1320,7 +1331,7 @@ class UPSTILatexDocument:
         # On génère un fichier LaTeX v1 à partir des métadonnées
         return "N.I", [["Non implémenté.", "info"]]
 
-    def _create_accessible_version(
+    def _cp_create_accessible_version(
         self, code: str, compilation_options: dict
     ) -> tuple[Optional[str], List[List[str]]]:
         """Crée un fichier tex pour une version accessible.
@@ -1370,7 +1381,7 @@ class UPSTILatexDocument:
 
     # --- Compilation LaTeX ---
 
-    def _compile_tex(
+    def _cp_compile_tex_file(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le fichier LaTeX (méthode interne).
@@ -1425,7 +1436,7 @@ class UPSTILatexDocument:
         for version in versions_accessibles_a_compiler:
             # Créer le fichier
             fichier_accessible, messages_fichiers_accessibles = (
-                self._create_accessible_version(
+                self._cp_create_accessible_version(
                     version, compilation_options=compilation_options
                 )
             )
@@ -1622,7 +1633,7 @@ class UPSTILatexDocument:
 
     # --- Post-traitements ---
 
-    def _copy_files(
+    def _cp_copy_files(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Copie les fichiers compilés dans le dossier cible (méthode interne).
@@ -1702,7 +1713,7 @@ class UPSTILatexDocument:
         # On copie les fichiers compilés dans le dossier cible
         return "success", messages
 
-    def _create_zip(
+    def _cp_create_zip(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Création du fichier zip
@@ -1744,6 +1755,8 @@ class UPSTILatexDocument:
                         nom_fichier_zip.as_posix(), 'zip', zip_tmp_folder.as_posix()
                     )
                 )
+            else:
+                fichier_zip = nom_fichier_zip.with_suffix('.zip')
 
             self._liste_fichiers["autres"].append(fichier_zip)
 
@@ -1752,13 +1765,11 @@ class UPSTILatexDocument:
                 shutil.rmtree(zip_tmp_folder.as_posix())
 
         except Exception as e:
-            return None, [
-                [f"Erreur lors de la création du zip des fichiers : {e}", "warning"]
-            ]
+            return None, [[f"Erreur lors de la création du zip : {e}.", "warning"]]
 
         return "success", []
 
-    def _create_info_file(
+    def _cp_create_info_file(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Création du fichier info
@@ -1813,8 +1824,9 @@ class UPSTILatexDocument:
             local_path = self.file.parent
 
         compiled_files = [str(f.name) for f in self._liste_fichiers.get("compiled", [])]
+
+        self._liste_fichiers["autres"].append(info_file)
         other_files = [str(f.name) for f in self._liste_fichiers.get("autres", [])]
-        other_files.append(info_file.name)
 
         # Ajout d'un hash pour la sécurité FTP
         import hashlib
@@ -1844,14 +1856,17 @@ class UPSTILatexDocument:
 
         except Exception as e:
             messages.append(
-                [f"Erreur lors de la création du fichier info : {e}", "warning"]
+                [
+                    f"Erreur lors de la création du fichier info : {e}. Upload annulé.",
+                    "warning",
+                ]
             )
-            return None, messages
+            return False, messages
 
-        return info_file, messages
+        return True, messages
 
-    def _upload(
-        self, infos: Optional[Path], compilation_options: dict
+    def _cp_upload(
+        self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Upload les fichiers compilés via FTP.
 
@@ -1862,25 +1877,111 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
 
+        # Fonction interne pour créer un dossier distant via FTP
+        def _mkdir_upload(ftp, dest_dir: str, is_local: Optional[bool] = False):
+            parts = Path(dest_dir).parts
+
+            if is_local:
+                # En local, il faut créer le chemin s'il n'existe pas
+                Path(dest_dir).mkdir(parents=True, exist_ok=True)
+
+            else:
+                # En distant, on crée chaque partie du chemin
+                for part in parts:
+                    try:
+                        ftp.mkd(part)
+                    except Exception:
+                        pass
+                    ftp.cwd(part)
+
         # Chargement de la configuration
         cfg = load_config()
+        is_local = cfg.ftp.mode_local
 
-        if infos is None:
-            return None, [["Upload impossible : aucun fichier infos fourni", "warning"]]
+        # Liste des fichiers à uploader
+        liste_fichiers_a_uploader = self._liste_fichiers.get(
+            "compiled", []
+        ) + self._liste_fichiers.get("autres", [])
 
-        # Sinon, infos est un Path
-        if infos.exists():
+        if not is_local:
+            user = cfg.ftp.user
+            password = cfg.ftp.password
+            host = cfg.ftp.host
+            port = cfg.ftp.port
+            timeout = cfg.ftp.timeout
+            passive = True
 
             # 1. Vérification de la connexion FTP
-            # 2. Récupération de la liste des fichiers dans le json
-            # 3. Upload des fichiers via FTP
-            # 4 Nettoyage des fichiers temporaires (sources, infos)
+            from ftplib import FTP
 
-            pass
+            try:
+                with FTP(host, timeout=timeout) as ftp:
+                    ftp.login(user=user, passwd=password)
+                    ftp.voidcmd("NOOP")  # commande neutre
+            except Exception as e:
+                return False, [
+                    [
+                        f"Impossible de se connecter au FTP : {e}. Upload annulé.",
+                        "warning",
+                    ]
+                ]
 
-        return "success", []
+            # 2. Upload des fichiers via FTP
+            remote_dir = cfg.compilation.dossier_ftp
 
-    def _webhook_call(
+            try:
+                if not compilation_options["dry_run"]:
+                    with FTP() as ftp:
+                        # Connexion
+                        ftp.connect(host=host, port=port, timeout=timeout)
+                        ftp.login(user=user, passwd=password)
+                        ftp.set_pasv(passive)
+
+                        # Aller dans le dossier distant (ou le créer)
+                        try:
+                            ftp.cwd(remote_dir)
+                        except Exception:
+                            _mkdir_upload(ftp, remote_dir)
+                            ftp.cwd(remote_dir)
+
+                        # Upload des fichiers
+                        for path in liste_fichiers_a_uploader:
+                            path = Path(path)
+                            if not path.is_file():
+                                raise FileNotFoundError(path)
+
+                            with path.open("rb") as f:
+                                ftp.storbinary(f"STOR {path.name}", f)
+
+                        ftp.quit()
+
+            except Exception as e:
+                return None, [[f"Erreur lors de l'upload FTP : {e}.", "warning"]]
+
+        else:
+            local_dir = cfg.ftp.mode_local_dossier
+            try:
+                if not compilation_options["dry_run"]:
+                    _mkdir_upload(None, local_dir, is_local=True)
+
+                    for path in liste_fichiers_a_uploader:
+                        path = Path(path)
+                        if not path.is_file():
+                            raise FileNotFoundError(path)
+                        shutil.copy2(path, Path(local_dir) / path.name)
+
+            except Exception as e:
+                return None, [
+                    [
+                        f"Erreur lors de la copie locale des fichiers : {e}. "
+                        "Upload annulé.",
+                        "warning",
+                    ]
+                ]
+
+        return True, []
+
+    def _cp_webhook_call(
         self, compilation_options: dict
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Upload les fichiers compilés via FTP/Webhook (méthode interne).
@@ -1893,45 +1994,61 @@ class UPSTILatexDocument:
         """
         # Chargement de la configuration
         cfg = load_config()
+        secret_key = bytes(cfg.site.secret_key, 'utf-8')
+        webhook_url = cfg.site.webhook_upload_url
 
-        # try:
-        #     # Création du dossier temporaire
-        #     if not compilation_options["dry_run"] or True:
-        #         zip_tmp_folder.mkdir(parents=True, exist_ok=True)
+        import hashlib
+        import hmac
 
-        #     # Copie du fichier tex dans le dossier temporaire
-        #     fichier_source = self.file.path
-        #     fichier_cible = zip_tmp_folder / fichier_source.name
-        #     if not compilation_options["dry_run"] or True:
-        #         shutil.copy2(fichier_source, fichier_cible)
+        import requests
 
-        #     # Copie du dossier sources dans le dossier temporaire
-        #     dossier_source = self.file.parent / cfg.compilation.dossier_sources_latex
-        #     dossier_cible = zip_tmp_folder / cfg.compilation.dossier_sources_latex
-        #     if not compilation_options["dry_run"] or True:
-        #         shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
+        # Préparation de l'appel au webhook
+        payload = '{"action": "run_script"}'
+        signature = hmac.new(secret_key, payload.encode(), hashlib.sha256).hexdigest()
+        headers = {"X-Signature": signature}
 
-        #     # Création du fichier zip
-        #     nom_fichier_zip = self.file.parent / (
-        #         str(self.file.stem) + cfg.compilation.suffixe_nom_sources
-        #     )
-        #     if not compilation_options["dry_run"] or True:
-        #         fichier_zip = Path(
-        #             shutil.make_archive(
-        #                 nom_fichier_zip.as_posix(), 'zip', zip_tmp_folder.as_posix()
-        #             )
-        #         )
+        if not compilation_options["dry_run"]:
+            try:
+                response = requests.post(webhook_url, data=payload, headers=headers)
+                if response.status_code != 202:
+                    raise Exception(
+                        f"Code de statut inattendu : {response.status_code}"
+                    )
+            except Exception as e:
+                return None, [[f"Erreur lors de l'appel au webhook : {e}.", "warning"]]
 
-        #     self._liste_fichiers["autres"].append(fichier_zip)
+        return "success", []
 
-        #     # Suppression du dossier temporaire
-        #     if not compilation_options["dry_run"] or True:
-        #         shutil.rmtree(zip_tmp_folder.as_posix())
+    def _cp_clean_temp_after_compilation(
+        self, compilation_options: dict
+    ) -> tuple[Optional[Dict], List[List[str]]]:
+        """Nettoie les fichiers temporaires après la compilation.
 
-        # except Exception as e:
-        #     return None, [
-        #         [f"Erreur lors de la création du zip des fichiers : {e}", "warning"]
-        #     ]
+        Retourne
+        --------
+        tuple[Optional[Dict], List[List[str]]]
+            (result, messages) où result contient des informations sur le nettoyage,
+            et messages est une liste de [message, flag].
+        """
+        # Chargement de la configuration
+        cfg = load_config()
+        info_file = self.file.parent / (
+            str(self.file.stem) + cfg.compilation.extension_fichier_infos_upload
+        )
+        zip_file = self.file.parent / (
+            str(self.file.stem) + cfg.compilation.suffixe_nom_sources + ".zip"
+        )
+
+        # Suppression des fichiers
+        try:
+            if not compilation_options["dry_run"]:
+                if info_file.is_file():
+                    info_file.unlink()
+                if zip_file.is_file():
+                    zip_file.unlink()
+
+        except Exception as e:
+            return None, [[f"Erreur lors du nettoyage des fichiers : {e}", "warning"]]
 
         return "success", []
 
