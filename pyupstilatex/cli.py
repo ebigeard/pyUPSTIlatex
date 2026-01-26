@@ -280,7 +280,7 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
     return _exit_with_separator(ctx, msg)
 
 
-@main.command()
+@main.command(name="compile")
 @click.argument("path", type=click.Path())
 @click.option(
     "--mode",
@@ -483,6 +483,49 @@ def compile(ctx, path, mode, dry_run):
         else:  # "success"
             msg.info("Compilation réussie", flag="success")
         return _exit_with_separator(ctx, msg)
+
+
+@main.command(name="poly-td")
+@click.argument("path", type=click.Path())
+@click.pass_context
+def poly_td(ctx, path):
+    """Créé un poly de TD ou le fichier YAML pour le créer."""
+
+    from pathlib import Path
+
+    chemin = Path(path)
+    msg: MessageHandler = ctx.obj["msg"]
+
+    # On récupère la config
+    cfg = load_config()
+    nom_fichier_yaml = cfg.poly_td.nom_fichier_yaml
+
+    # Cas où le chemin fourni est invalide
+    if not chemin.exists():
+        msg.titre1("CRÉATION DU POLY DE TD")
+        msg.info(f"Fichier ou dossier introuvable : {chemin}", flag="error")
+        return _exit_with_separator(ctx, msg)
+
+    # Cas où on a un dossier
+    if chemin.is_dir():
+        msg.titre1(f"CRÉATION DU FICHIER YAML à partir de {chemin}")
+
+        from .utils import create_poly_td
+
+        resultat, messages = create_poly_td(chemin, msg)
+
+    # Cas où on a un fichier unique
+    elif chemin.is_file():
+        msg.titre1("CRÉATION DU POLY DE TD à partir du fichier YAML")
+        if chemin.name != nom_fichier_yaml:
+            msg.info(f"Fichier non pris en charge : {chemin.name}", flag="error")
+            return _exit_with_separator(ctx, msg)
+        else:
+            from .utils import create_yaml_for_poly
+
+            resultat, messages = create_yaml_for_poly(chemin, msg)
+
+    return _exit_with_separator(ctx, msg)
 
 
 def _exit_with_separator(ctx, msg):

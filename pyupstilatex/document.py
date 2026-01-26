@@ -564,19 +564,20 @@ class UPSTILatexDocument:
 
         # Lire la configuration centralisée
         cfg = load_config()
-        comp = cfg.compilation
 
         parametres_compilation = {
-            "compiler": bool(comp.compiler),
-            "renommer_automatiquement": bool(comp.renommer_automatiquement),
-            "versions_a_compiler": list(comp.versions_a_compiler),
+            "compiler": bool(cfg.compilation.compiler),
+            "renommer_automatiquement": bool(cfg.compilation.renommer_automatiquement),
+            "versions_a_compiler": list(cfg.compilation.versions_a_compiler),
             "versions_accessibles_a_compiler": list(
-                comp.versions_accessibles_a_compiler
+                cfg.compilation.versions_accessibles_a_compiler
             ),
-            "est_un_document_a_trous": bool(comp.est_un_document_a_trous),
-            "copier_pdf_dans_dossier_cible": bool(comp.copier_pdf_dans_dossier_cible),
-            "upload": bool(comp.upload),
-            "dossier_ftp": str(comp.dossier_ftp),
+            "est_un_document_a_trous": bool(cfg.compilation.est_un_document_a_trous),
+            "copier_pdf_dans_dossier_cible": bool(
+                cfg.compilation.copier_pdf_dans_dossier_cible
+            ),
+            "upload": bool(cfg.compilation.upload),
+            "dossier_ftp": str(cfg.compilation.dossier_ftp),
         }
 
         # Vérifier si un fichier de paramètres existe dans le même dossier
@@ -781,7 +782,7 @@ class UPSTILatexDocument:
         # On va prendre en compte le paramètre "compiler"
         if not comp_params.get("compiler", True):
             cfg = load_config()
-            nom_fichier_comp = cfg.compilation.nom_fichier_parametres_compilation
+            nom_fichier_comp = cfg.os.nom_fichier_parametres_compilation
             comp_params_messages.append(
                 [
                     "La compilation est désactivée pour ce document "
@@ -846,7 +847,7 @@ class UPSTILatexDocument:
         # 1. Récupérer le format depuis la config
         chemin_actuel = self.file.path
         cfg = load_config()
-        format_nom_fichier = cfg.compilation.format_nom_fichier
+        format_nom_fichier = cfg.os.format_nom_fichier
 
         if not format_nom_fichier:
             return chemin_actuel.name, [
@@ -1066,7 +1067,7 @@ class UPSTILatexDocument:
         failed_deletions: List[List[str]] = []
 
         parent = chemin_actuel.parent
-        build_dir = parent / cfg.compilation.dossier_compilation_latex
+        build_dir = parent / cfg.os.dossier_build_latex
 
         if build_dir.exists() and build_dir.is_dir():
             try:
@@ -1107,8 +1108,7 @@ class UPSTILatexDocument:
         if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
             try:
                 dossier_cible = (
-                    self.file.parent
-                    / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+                    self.file.parent / cfg.os.dossier_cible_par_rapport_au_fichier_tex
                 )
                 prefix_old, prefix_new = chemin_actuel.stem, nouveau_chemin.stem
 
@@ -1178,11 +1178,10 @@ class UPSTILatexDocument:
         url = pattern.replace("{id_unique}", id_unique)
 
         # Création du chemin du fichier QRcode
-        comp = cfg.compilation
         images_dir = (
             self.file.parent
-            / str(comp.dossier_sources_latex)
-            / str(comp.dossier_sources_latex_images)
+            / str(cfg.os.dossier_sources_latex)
+            / str(cfg.os.dossier_sources_latex_images)
         )
         if not compilation_options["dry_run"]:
             try:
@@ -1190,8 +1189,7 @@ class UPSTILatexDocument:
             except Exception:
                 pass
 
-        # qrcode_filename = f"{self.file.stem}{comp.suffixe_nom_qrcode}.png"
-        qrcode_filename = f"{comp.fichier_qrcode}.png"
+        qrcode_filename = f"{cfg.os.nom_fichier_qrcode}.png"
         qrcode_path = images_dir / qrcode_filename
 
         # Génération du QRcode
@@ -1472,7 +1470,7 @@ class UPSTILatexDocument:
                             ),
                             "fichier_tex": fichier_a_compiler["nom"],
                             "job_name": (
-                                f"{fichier_a_compiler['nom']}{cfg.compilation.suffixe_nom_fichier_a_trous}"
+                                f"{fichier_a_compiler['nom']}{cfg.os.suffixe_nom_fichier_a_trous}"
                             ),
                             "option": "E",
                         }
@@ -1493,9 +1491,7 @@ class UPSTILatexDocument:
                 {
                     "affichage_nom_version": "prof",
                     "fichier_tex": self.file.stem,
-                    "job_name": (
-                        f"{self.file.stem}{cfg.compilation.suffixe_nom_fichier_prof}"
-                    ),
+                    "job_name": (f"{self.file.stem}{cfg.os.suffixe_nom_fichier_prof}"),
                     "option": "P",
                 }
             )
@@ -1510,8 +1506,8 @@ class UPSTILatexDocument:
         self.msg.affiche_messages(messages, "resultat_item")
 
         # Compilation des différents fichiers
-        nombre_compilations = cfg.compilation.nombre_compilations_latex
-        build_dir = cfg.compilation.dossier_compilation_latex
+        nombre_compilations = cfg.compilation.latex_nombre_compilations
+        build_dir = cfg.os.dossier_build_latex
         output_dir = self.file.parent
 
         # Pour savoir si on doit faire une compilation bibtex
@@ -1648,13 +1644,11 @@ class UPSTILatexDocument:
 
         # Chargement de la configuration
         cfg = load_config()
-        dest_folder = (
-            self.file.parent / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
-        )
+        dest_folder = self.file.parent / cfg.os.dossier_cible_par_rapport_au_fichier_tex
 
         # On génère d'abord le fichier version si nécessaire
         if bool(cfg.compilation.copier_fichier_version):
-            fichier_version_pattern = cfg.compilation.format_nom_fichier_version
+            fichier_version_pattern = cfg.os.format_nom_fichier_version
             version = self._metadata.get("version", {}).get("valeur", "XXXX")
             nom_fichier_version = fichier_version_pattern.replace(
                 "[numero_version]", version
@@ -1726,7 +1720,7 @@ class UPSTILatexDocument:
         """
         # Chargement de la configuration
         cfg = load_config()
-        zip_tmp_folder = self.file.parent / cfg.compilation.dossier_tmp_pour_zip
+        zip_tmp_folder = self.file.parent / cfg.os.dossier_tmp_pour_zip
 
         try:
             # Création du dossier temporaire
@@ -1740,14 +1734,14 @@ class UPSTILatexDocument:
                 shutil.copy2(fichier_source, fichier_cible)
 
             # Copie du dossier sources dans le dossier temporaire
-            dossier_source = self.file.parent / cfg.compilation.dossier_sources_latex
-            dossier_cible = zip_tmp_folder / cfg.compilation.dossier_sources_latex
+            dossier_source = self.file.parent / cfg.os.dossier_sources_latex
+            dossier_cible = zip_tmp_folder / cfg.os.dossier_sources_latex
             if not compilation_options["dry_run"]:
                 shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
 
             # Création du fichier zip
             nom_fichier_zip = self.file.parent / (
-                str(self.file.stem) + cfg.compilation.suffixe_nom_sources
+                str(self.file.stem) + cfg.os.suffixe_nom_fichier_sources
             )
             if not compilation_options["dry_run"]:
                 fichier_zip = Path(
@@ -1788,10 +1782,10 @@ class UPSTILatexDocument:
 
         # On vérifie d'abord si on doit aussi uploader un diaporama
         diaporama_folder = (
-            self.file.parent / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+            self.file.parent / cfg.os.dossier_cible_par_rapport_au_fichier_tex
         )
-        liste_extensions_diaporama = cfg.compilation.extensions_diaporama
-        nom_fichier_diaporama = self.file.stem + cfg.compilation.suffixe_nom_diaporama
+        liste_extensions_diaporama = cfg.os.extensions_diaporama
+        nom_fichier_diaporama = self.file.stem + cfg.os.suffixe_nom_fichier_diaporama
 
         # Chercher les fichiers correspondants
         try:
@@ -1812,13 +1806,12 @@ class UPSTILatexDocument:
 
         # Création du fichier info
         info_file = self.file.parent / (
-            str(self.file.stem) + cfg.compilation.extension_fichier_infos_upload
+            str(self.file.stem) + cfg.os.extension_fichier_infos_upload
         )
 
         if cfg.compilation.copier_pdf_dans_dossier_cible:
             local_path = (
-                self.file.parent
-                / cfg.compilation.dossier_cible_par_rapport_au_fichier_tex
+                self.file.parent / cfg.os.dossier_cible_par_rapport_au_fichier_tex
             )
         else:
             local_path = self.file.parent
@@ -2033,10 +2026,10 @@ class UPSTILatexDocument:
         # Chargement de la configuration
         cfg = load_config()
         info_file = self.file.parent / (
-            str(self.file.stem) + cfg.compilation.extension_fichier_infos_upload
+            str(self.file.stem) + cfg.os.extension_fichier_infos_upload
         )
         zip_file = self.file.parent / (
-            str(self.file.stem) + cfg.compilation.suffixe_nom_sources + ".zip"
+            str(self.file.stem) + cfg.os.suffixe_nom_fichier_sources + ".zip"
         )
 
         # Suppression des fichiers
@@ -2077,9 +2070,7 @@ class UPSTILatexDocument:
         # Déterminer le chemin du fichier
         if fichier_path is None:
             cfg = load_config()
-            fichier_path = (
-                self.file.parent / cfg.compilation.nom_fichier_parametres_compilation
-            )
+            fichier_path = self.file.parent / cfg.os.nom_fichier_parametres_compilation
 
         # Vérifier l'existence du fichier
         if not fichier_path.exists() or not fichier_path.is_file():

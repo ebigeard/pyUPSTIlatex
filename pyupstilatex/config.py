@@ -149,26 +149,11 @@ class CompilationConfig:
     dossier_ftp: str
 
     # Paramètres de compilation LaTeX
-    nombre_compilations_latex: int
+    latex_nombre_compilations: int
 
-    # Compilation rapide et OS
+    # Compilation
     affichage_detaille_dans_console: bool
-    nom_fichier_parametres_compilation: str
-    extension_fichier_infos_upload: str
-    extensions_diaporama: list[str]
-    format_nom_fichier: str
-    dossier_cible_par_rapport_au_fichier_tex: str
     copier_fichier_version: bool
-    format_nom_fichier_version: str
-    dossier_compilation_latex: str
-    dossier_sources_latex: str
-    dossier_sources_latex_images: str
-    dossier_tmp_pour_zip: str
-    suffixe_nom_fichier_prof: str
-    suffixe_nom_fichier_a_trous: str
-    suffixe_nom_diaporama: str
-    suffixe_nom_sources: str
-    fichier_qrcode: str
 
     @classmethod
     def from_env(cls) -> "CompilationConfig":
@@ -196,63 +181,87 @@ class CompilationConfig:
             upload_diaporama=get_bool("COMPILATION_DEFAUT_UPLOAD_DIAPORAMA", True),
             dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
             # Paramètres de compilation LaTeX
-            nombre_compilations_latex=get_int(
+            latex_nombre_compilations=get_int(
                 "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2
             ),
-            # Compilation rapide et OS
+            # Compilation
             affichage_detaille_dans_console=get_bool(
-                "COMPILATION_OS_AFFICHAGE_DETAILLE_DANS_CONSOLE", False
+                "COMPILATION_AFFICHAGE_DETAILLE_DANS_CONSOLE", False
+            ),
+            copier_fichier_version=get_bool("COMPILATION_COPIER_FICHIER_VERSION", True),
+        )
+
+
+@dataclass(frozen=True)
+class OSConfig:
+    """Valeurs par défaut pour l'OS, provenant du .env"""
+
+    # Fichiers et extensions
+    format_nom_fichier: str
+    format_nom_fichier_version: str
+    nom_fichier_parametres_compilation: str
+    nom_fichier_qrcode: str
+    nom_fichier_yaml_poly: str
+    extension_fichier_infos_upload: str
+    extensions_diaporama: list[str]
+    suffixe_nom_fichier_prof: str
+    suffixe_nom_fichier_a_trous: str
+    suffixe_nom_fichier_diaporama: str
+    suffixe_nom_fichier_sources: str
+    suffixe_nom_fichier_poly_td: str
+
+    # Dossiers et arborescence
+    dossier_cible_par_rapport_au_fichier_tex: str
+    dossier_sources_latex: str
+    dossier_sources_latex_images: str
+    dossier_build_latex: str
+    dossier_tmp_pour_zip: str
+    dossier_poly: str
+
+    @classmethod
+    def from_env(cls) -> "OSConfig":
+        return cls(
+            # Fichiers et extensions
+            format_nom_fichier=get_str(
+                "OS_FORMAT_NOM_FICHIER",
+                "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]",
+            ),
+            format_nom_fichier_version=get_str(
+                "OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
             ),
             nom_fichier_parametres_compilation=get_str(
-                "COMPILATION_OS_NOM_FICHIER_PARAMETRES_COMPILATION",
-                "@parametres.pyUPSTIlatex.yaml",
+                "OS_NOM_FICHIER_PARAMETRES_COMPILATION", "@parametres.pyUPSTIlatex.yaml"
             ),
+            nom_fichier_qrcode=get_str("OS_NOM_FICHIER_QRCODE", "qrcode"),
+            nom_fichier_yaml_poly=get_str("OS_NOM_FICHIER_YAML_POLY", "poly.yaml"),
             extension_fichier_infos_upload=get_str(
-                "COMPILATION_OS_EXTENSION_FICHIER_INFOS_UPLOAD", ".infos.json"
+                "OS_EXTENSION_FICHIER_INFOS_UPLOAD", ".infos.json"
             ),
             extensions_diaporama=get_list(
-                "COMPILATION_OS_EXTENSIONS_DIAPORAMA",
+                "OS_EXTENSIONS_DIAPORAMA",
                 default=[".pptx", ".ppt", ".key", ".odp"],
                 sep=",",
             ),
-            format_nom_fichier=get_str(
-                "COMPILATION_OS_FORMAT_NOM_FICHIER",
-                "{thematique.code}-{classe.niveau}-{titre}",
-            ),
-            dossier_cible_par_rapport_au_fichier_tex=get_str(
-                "COMPILATION_OS_DOSSIER_CIBLE_PAR_RAPPORT_AU_FICHIER_TEX", ".."
-            ),
-            copier_fichier_version=get_bool(
-                "COMPILATION_OS_COPIER_FICHIER_VERSION", True
-            ),
-            format_nom_fichier_version=get_str(
-                "COMPILATION_OS_FORMAT_NOM_FICHIER_VERSION", "@_v[numero_version].ver"
-            ),
-            dossier_compilation_latex=get_str(
-                "COMPILATION_OS_DOSSIER_COMPILATION_LATEX", "build"
-            ),
-            dossier_sources_latex=get_str(
-                "COMPILATION_OS_DOSSIER_SOURCES_LATEX", "src"
-            ),
-            dossier_sources_latex_images=get_str(
-                "COMPILATION_OS_DOSSIER_SOURCES_LATEX_IMAGES", "images"
-            ),
-            dossier_tmp_pour_zip=get_str(
-                "COMPILATION_OS_DOSSIER_TMP_POUR_ZIP", "temp_zip"
-            ),
-            suffixe_nom_fichier_prof=get_str(
-                "COMPILATION_OS_SUFFIXE_NOM_FICHIER_PROF", "-prof"
-            ),
+            suffixe_nom_fichier_prof=get_str("OS_SUFFIXE_NOM_FICHIER_PROF", "-prof"),
             suffixe_nom_fichier_a_trous=get_str(
-                "COMPILATION_OS_SUFFIXE_NOM_FICHIER_A_TROUS", "-eleve"
+                "OS_SUFFIXE_NOM_FICHIER_A_TROUS", "-eleve"
             ),
-            suffixe_nom_diaporama=get_str(
-                "COMPILATION_OS_SUFFIXE_NOM_DIAPORAMA", "-diaporama"
+            suffixe_nom_fichier_diaporama=get_str(
+                "OS_SUFFIXE_NOM_DIAPORAMA", "-diaporama"
             ),
-            suffixe_nom_sources=get_str(
-                "COMPILATION_OS_SUFFIXE_NOM_SOURCES", "-sources"
+            suffixe_nom_fichier_sources=get_str("OS_SUFFIXE_NOM_SOURCES", "-sources"),
+            suffixe_nom_fichier_poly_td=get_str("OS_SUFFIXE_NOM_POLY_TD", "-poly-td"),
+            # Dossiers et arborescence
+            dossier_cible_par_rapport_au_fichier_tex=get_str(
+                "OS_DOSSIER_CIBLE_PAR_RAPPORT_AU_FICHIER_TEX", ".."
             ),
-            fichier_qrcode=get_str("COMPILATION_OS_FICHIER_QRCODE", "qrcode"),
+            dossier_sources_latex=get_str("OS_DOSSIER_SOURCES_LATEX", "src"),
+            dossier_sources_latex_images=get_str(
+                "OS_DOSSIER_SOURCES_LATEX_IMAGES", "images"
+            ),
+            dossier_build_latex=get_str("OS_DOSSIER_BUILD_LATEX", "build"),
+            dossier_tmp_pour_zip=get_str("OS_DOSSIER_TMP_POUR_ZIP", "temp_zip"),
+            dossier_poly=get_str("OS_DOSSIER_POLY", "_poly"),
         )
 
 
@@ -260,9 +269,9 @@ class CompilationConfig:
 class PolyTDConfig:
     nombre_de_pages_par_feuille: int
     recto_verso: bool
-    dossier_pour_poly_td: str
-    nom_fichier_xml_poly: str
-    suffixe_poly_td: str
+    dossier: str
+    nom_fichier_yaml: str
+    suffixe: str
     template_page_de_garde: Path
 
     @classmethod
@@ -270,17 +279,14 @@ class PolyTDConfig:
         return cls(
             nombre_de_pages_par_feuille=get_int(
                 "POLY_TD_NOMBRE_DE_PAGES_PAR_FEUILLE", 2
-            )
-            or 2,
+            ),
             recto_verso=get_bool("POLY_TD_RECTO_VERSO", True),
-            dossier_pour_poly_td=get_str("POLY_TD_DOSSIER_POUR_POLY_TD", "_poly")
-            or "_poly",
-            nom_fichier_xml_poly=get_str("POLY_TD_NOM_FICHIER_XML_POLY", "poly.xml")
-            or "poly.xml",
-            suffixe_poly_td=get_str("POLY_TD_SUFFIXE_POLY_TD", "-polyTD") or "-polyTD",
+            dossier=get_str("POLY_TD_DOSSIER", "_poly"),
+            nom_fichier_yaml=get_str("POLY_TD_NOM_FICHIER_YAML", "poly.yaml"),
+            suffixe=get_str("POLY_TD_SUFFIXE", "-poly-td"),
             template_page_de_garde=get_path(
                 "POLY_TD_TEMPLATE_PAGE_DE_GARDE",
-                "templates/page_de_garde_poly_TD.template.tex",
+                "templates/page_de_garde_poly_td.template.tex",
             ),
         )
 
@@ -356,6 +362,7 @@ class SiteConfig:
 class AppConfig:
     meta: MetaConfig
     compilation: CompilationConfig
+    os: OSConfig
     traitement_par_lot: TraitementParLotConfig
     ftp: FTPConfig
     site: SiteConfig
@@ -366,6 +373,7 @@ class AppConfig:
         return cls(
             meta=MetaConfig.from_env(),
             compilation=CompilationConfig.from_env(),
+            os=OSConfig.from_env(),
             traitement_par_lot=TraitementParLotConfig.from_env(),
             ftp=FTPConfig.from_env(),
             site=SiteConfig.from_env(),
