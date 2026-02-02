@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import regex as re
 import yaml
 
-from .utils import read_json_config
+from .file_helpers import read_json_config
 
 
 def parse_metadata_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
@@ -263,8 +263,7 @@ def parse_metadata_tex(
         comp = result["competences"]
         if "FILIERE_TO_FIND" in comp:
             codes_competences = comp.pop("FILIERE_TO_FIND")
-            # Format attendu: {'pg': annee, 'cp': [codes]}
-            comp[filiere] = {"pg": programme, "cp": codes_competences}
+            comp[filiere] = {programme: codes_competences}
 
     return result, errors
 

@@ -4,7 +4,7 @@ import click
 
 from .config import load_config
 from .document import UPSTILatexDocument
-from .filesystem import format_documents_for_display, scan_for_documents
+from .file_helpers import format_documents_for_display, scan_for_documents
 from .logger import (
     COLOR_DARK_GRAY,
     COLOR_GREEN,
@@ -122,10 +122,14 @@ def infos(ctx, path):
             else:
                 separateur_colored = f"{COLOR_GREEN}=>{COLOR_RESET}"
 
+            # Gérer les sauts de ligne dans valeur pour l'alignement
+            indent_width = max_label_len + 6  # label + " => " + 2 (mystère)
+            valeur_aligned = str(valeur).replace("\n", "\n" + " " * indent_width)
+
             # padding: ajouter des espaces après le label pour aligner ':'
             pad = max_label_len - len(label)
             padding = " " * pad
-            msg.info(f"{padding}{label} {separateur_colored} {valeur}")
+            msg.info(f"{padding}{label} {separateur_colored} {valeur_aligned}")
 
     # Erreurs rencontrées
     if messages:
@@ -345,15 +349,13 @@ def compile(ctx, path, mode, dry_run):
 
         # Gérer les erreurs fatales
         if documents_a_compiler is None:
-            msg.separateur1()
-            msg.info("Erreur fatale lors du scan.", flag="error")
-            return _exit_with_separator(ctx, msg)
+            messages = [["Erreur fatale lors du scan.", "error"]]
+            return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
         nb_documents = len(documents_a_compiler)
         if nb_documents == 0:
-            msg.separateur1()
-            msg.info("Aucun document compatible trouvé.", flag="error")
-            return _exit_with_separator(ctx, msg)
+            messages = [["Aucun document compatible trouvé.", "error"]]
+            return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
         # Affichage de la liste des documents trouvés (avec numérotation)
         max_name = max(len(d["filename"]) for d in documents_a_compiler)
@@ -383,9 +385,8 @@ def compile(ctx, path, mode, dry_run):
 
         doit_compiler = input()
         if doit_compiler not in ["O", "o"]:
-            msg.separateur1()
-            msg.info("Opération annulée par l'utilisateur.", flag="error")
-            return _exit_with_separator(ctx, msg)
+            messages = [["Opération annulée par l'utilisateur.", "error"]]
+            return _exit_with_messages(ctx, msg, messages, separator_before=True)
         else:
             if nb_documents == 1:
                 msg.titre2(f"Compilation de : {documents_a_compiler[0]['filename']}")
@@ -510,9 +511,13 @@ def poly_td(ctx, path):
     if chemin.is_dir():
         msg.titre1(f"CRÉATION DU FICHIER YAML à partir de {chemin}")
 
-        from .utils import create_poly_td
+        from .file_helpers import create_yaml_for_poly
 
-        resultat, messages = create_poly_td(chemin, msg)
+        resultat, messages = create_yaml_for_poly(chemin, msg)
+
+        if not resultat:
+            messages.append(["Le fichier YAML n'a pu être créé", "fatal_error"])
+            return _exit_with_messages(ctx, msg, messages, separator_before=True)
 
     # Cas où on a un fichier unique
     elif chemin.is_file():
@@ -521,9 +526,9 @@ def poly_td(ctx, path):
             msg.info(f"Fichier non pris en charge : {chemin.name}", flag="error")
             return _exit_with_separator(ctx, msg)
         else:
-            from .utils import create_yaml_for_poly
+            from .file_helpers import create_poly_td
 
-            resultat, messages = create_yaml_for_poly(chemin, msg)
+            resultat, messages = create_poly_td(chemin, msg)
 
     return _exit_with_separator(ctx, msg)
 
@@ -533,7 +538,9 @@ def _exit_with_separator(ctx, msg):
     ctx.exit(1)
 
 
-def _exit_with_messages(ctx, msg, messages):
+def _exit_with_messages(ctx, msg, messages, separator_before=False):
+    if separator_before:
+        msg.separateur1()
     msg.affiche_messages(messages, "info")
     return _exit_with_separator(ctx, msg)
 

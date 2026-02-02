@@ -1,5 +1,6 @@
 # TODO
 
+- Parse des metadonnees possible aussi avec \begin{comment}
 - Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
 - Faire un .env exemple
 - Changer UPSTI_Document_v2 en upsti-latex

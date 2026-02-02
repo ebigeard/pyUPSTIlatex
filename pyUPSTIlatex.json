@@ -1,6 +1,6 @@
 {
-  "version": "0.3.9",
-  "date": "10/01/2026",
+  "version": "0.3.11",
+  "date": "03/02/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -68,7 +68,7 @@
       "nom": "Cours",
       "slug": "cours",
       "affichage": "",
-      "initiales": "CO",
+      "initiales": "co",
       "id_upsti_document": 1,
       "parametres": {}
     },
@@ -76,7 +76,7 @@
       "nom": "Colle",
       "slug": "colle",
       "affichage": "",
-      "initiales": "KH",
+      "initiales": "kh",
       "id_upsti_document": 4,
       "parametres": {}
     },
@@ -84,7 +84,7 @@
       "nom": "Formulaire",
       "slug": "formulaire",
       "affichage": "",
-      "initiales": "FO",
+      "initiales": "fo",
       "id_upsti_document": 9,
       "parametres": {}
     },
@@ -92,7 +92,7 @@
       "nom": "Mémo",
       "slug": "memo",
       "affichage": "",
-      "initiales": "ME",
+      "initiales": "me",
       "id_upsti_document": 10,
       "parametres": {}
     },
@@ -100,7 +100,7 @@
       "nom": "QCM",
       "slug": "qcm",
       "affichage": "",
-      "initiales": "QCM",
+      "initiales": "qcm",
       "id_upsti_document": 16,
       "parametres": {}
     },
@@ -108,7 +108,7 @@
       "nom": "Concours Blanc",
       "slug": "cb",
       "affichage": "CB",
-      "initiales": "CB",
+      "initiales": "cb",
       "id_upsti_document": 13,
       "parametres": {}
     },
@@ -116,7 +116,7 @@
       "nom": "Devoir Maison",
       "slug": "dm",
       "affichage": "DM",
-      "initiales": "DM",
+      "initiales": "dm",
       "id_upsti_document": 6,
       "parametres": {}
     },
@@ -124,7 +124,7 @@
       "nom": "Dossier Ressource",
       "slug": "doc_ressource",
       "affichage": "DR",
-      "initiales": "DR",
+      "initiales": "dr",
       "id_upsti_document": 12,
       "parametres": {}
     },
@@ -132,7 +132,7 @@
       "nom": "Document Réponses",
       "slug": "dr",
       "affichage": "DR",
-      "initiales": "DR",
+      "initiales": "dr",
       "id_upsti_document": 14,
       "parametres": {}
     },
@@ -140,7 +140,7 @@
       "nom": "Devoir Surveillé",
       "slug": "ds",
       "affichage": "DS",
-      "initiales": "DS",
+      "initiales": "ds",
       "id_upsti_document": 5,
       "parametres": {}
     },
@@ -148,7 +148,7 @@
       "nom": "Dossier Technique",
       "slug": "doc_technique",
       "affichage": "DT",
-      "initiales": "DT",
+      "initiales": "dt",
       "id_upsti_document": 11,
       "parametres": {}
     },
@@ -156,7 +156,7 @@
       "nom": "Fiche Méthode",
       "slug": "fiche_methode",
       "affichage": "Méthode",
-      "initiales": "FM",
+      "initiales": "fm",
       "id_upsti_document": 7,
       "parametres": {}
     },
@@ -164,7 +164,7 @@
       "nom": "Programme de colle",
       "slug": "programme_colle",
       "affichage": "Programme de colle",
-      "initiales": "PKH",
+      "initiales": "pkh",
       "id_upsti_document": 15,
       "parametres": {}
     },
@@ -172,7 +172,7 @@
       "nom": "Fiche Synthèse",
       "slug": "fiche_synthese",
       "affichage": "Synthèse",
-      "initiales": "FS",
+      "initiales": "fs",
       "id_upsti_document": 8,
       "parametres": {}
     },
@@ -180,7 +180,7 @@
       "nom": "Travaux Dirigés",
       "slug": "td",
       "affichage": "TD",
-      "initiales": "TD",
+      "initiales": "td",
       "id_upsti_document": 2,
       "parametres": {}
     },
@@ -188,7 +188,7 @@
       "nom": "Travaux Pratiques",
       "slug": "tp",
       "affichage": "TP",
-      "initiales": "TP",
+      "initiales": "tp",
       "id_upsti_document": 3,
       "parametres": {}
     }
@@ -736,11 +736,11 @@
       "label": "Autres métadonnées",
       "description": "",
       "parametres": {},
-      "ordre": 34
+      "ordre": 35
     },
     "id_unique": {
       "label": "id",
-      "description": "`id_unique` : id unique du document\r\n\r\n```\r\nid_unique: EB:1763050876\r\n```\r\n\r\n- **valeurs possibles :** [str]\r\n\r\n- **si absent des métadonnées :** calculé (prefixe issu du fichier `.env`, suffixe correspondant au timestamp unix de l'instant de création). Créé lors de la compilation.\r\n\r\n- **contraintes :**\r\n\r\n    - doit être unique\r\n\r\n    - type: str",
+      "description": "`id_unique` : id unique du document\r\n\r\n```\r\nid_unique: EB1763050876\r\n```\r\n\r\n- **valeurs possibles :** [str]\r\n\r\n- **si absent des métadonnées :** calculé (prefixe issu du fichier `.env`, suffixe correspondant au timestamp unix de l'instant de création). Créé lors de la compilation.\r\n\r\n- **contraintes :**\r\n\r\n    - doit être unique\r\n\r\n    - type: str",
       "parametres": {
         "default": "calc",
         "tex_key": "UPSTIidDocument",
@@ -1102,7 +1102,7 @@
     },
     "competences": {
       "label": "Compétences",
-      "description": "`competences`: liste des compétences concernées par le document.\r\n\r\n```\r\ncompetences: {PTSI-PT: {pg: 2021, cp: [\"B2-10\",\"B2-01\",\"C2-08\",\"C2-09\"]}}\r\n```\r\n\r\n- **valeurs possibles :** par filière et par millésime de programme, une liste de codes de compétences issus des programmes définis dans `pyUPSTIlatex.json` (clé: `competence`)\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "description": "`competences`: liste des compétences concernées par le document.\r\n\r\n```\r\ncompetences: {PTSI-PT: '2021': [\"B2-10\",\"B2-01\",\"C2-08\",\"C2-09\"]}\r\n```\r\n\r\n- **valeurs possibles :** par filière et par millésime de programme, une liste de codes de compétences issus des programmes définis dans `pyUPSTIlatex.json` (clé: `competence`)\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
         "tex_key": "UPSTIprogramme",
         "tex_type": "batch_competences",
@@ -1129,6 +1129,16 @@
       },
       "ordre": 33
     },
+    "description": {
+      "label": "Description",
+      "description": "`description`: description du document\r\n\r\n```\r\ndescription: | Ma description, sur plusieurs paragraphes éventuellement\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
+      "parametres": {
+        "accepted_types": [
+          "text"
+        ]
+      },
+      "ordre": 34
+    },
     "macro_competences_calculees": {
       "label": "Macro-compétences (Calculées)",
       "description": "`macro_competences_calculees` : liste et poids des macro-compétences dans le document, calculés automatiquement à partir des compétences définies dans `competences`. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `macro_competences_forcees`).\r\n\r\n```\r\nmacro_competences_calculees: {analyser: 80, modeliser: 15, resoudre: 5}\r\n```\r\n\r\n- **valeurs possibles :** macro_competences définies dans `pyUPSTIlatex.json` (clé: `macro_competence`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
@@ -1142,7 +1152,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 35
+      "ordre": 36
     },
     "domaines_calcules": {
       "label": "Domaines (Calculés)",
@@ -1157,7 +1167,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 36
+      "ordre": 37
     },
     "difficulte_calculee": {
       "label": "Difficulté (Calculée)",
@@ -1170,7 +1180,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 37
+      "ordre": 38
     },
     "hors_programme_calcule": {
       "label": "Hors programme (Calculé)",
@@ -1183,7 +1193,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 38
+      "ordre": 39
     },
     "macro_competences_forcees": {
       "label": "Macro-compétences (Forcées)",
@@ -1198,7 +1208,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 39
+      "ordre": 40
     },
     "domaines_forces": {
       "label": "Domaines (Forcés)",
@@ -1213,7 +1223,7 @@
           "value_type": "int"
         }
       },
-      "ordre": 40
+      "ordre": 41
     },
     "difficulte_forcee": {
       "label": "Difficulté (Forcée)",
@@ -1226,7 +1236,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 41
+      "ordre": 42
     },
     "hors_programme_force": {
       "label": "Hors programme (Forcé)",
@@ -1239,7 +1249,7 @@
           "valeur_max": 100
         }
       },
-      "ordre": 42
+      "ordre": 43
     }
   },
   "competence": {

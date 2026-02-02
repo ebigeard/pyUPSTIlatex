@@ -211,12 +211,17 @@ class OSConfig:
     suffixe_nom_fichier_poly_td: str
 
     # Dossiers et arborescence
+    dossier_cours: str
+    dossier_td: str
     dossier_cible_par_rapport_au_fichier_tex: str
-    dossier_sources_latex: str
-    dossier_sources_latex_images: str
-    dossier_build_latex: str
+    dossier_latex: str
+    dossier_latex_build: str
+    dossier_latex_sources: str
+    dossier_latex_sources_images: str
     dossier_tmp_pour_zip: str
     dossier_poly: str
+    dossier_poly_backup_yaml: str
+    dossier_poly_page_de_garde: str
 
     @classmethod
     def from_env(cls) -> "OSConfig":
@@ -252,16 +257,23 @@ class OSConfig:
             suffixe_nom_fichier_sources=get_str("OS_SUFFIXE_NOM_SOURCES", "-sources"),
             suffixe_nom_fichier_poly_td=get_str("OS_SUFFIXE_NOM_POLY_TD", "-poly-td"),
             # Dossiers et arborescence
+            dossier_cours=get_str("OS_DOSSIER_COURS", "Cours"),
+            dossier_td=get_str("OS_DOSSIER_TD", "TD"),
             dossier_cible_par_rapport_au_fichier_tex=get_str(
                 "OS_DOSSIER_CIBLE_PAR_RAPPORT_AU_FICHIER_TEX", ".."
             ),
-            dossier_sources_latex=get_str("OS_DOSSIER_SOURCES_LATEX", "src"),
-            dossier_sources_latex_images=get_str(
-                "OS_DOSSIER_SOURCES_LATEX_IMAGES", "images"
+            dossier_latex=get_str("OS_DOSSIER_LATEX", "LaTeX"),
+            dossier_latex_build=get_str("OS_DOSSIER_LATEX_BUILD", "build"),
+            dossier_latex_sources=get_str("OS_DOSSIER_LATEX_SOURCES", "src"),
+            dossier_latex_sources_images=get_str(
+                "OS_DOSSIER_LATEX_SOURCES_IMAGES", "images"
             ),
-            dossier_build_latex=get_str("OS_DOSSIER_BUILD_LATEX", "build"),
             dossier_tmp_pour_zip=get_str("OS_DOSSIER_TMP_POUR_ZIP", "temp_zip"),
             dossier_poly=get_str("OS_DOSSIER_POLY", "_poly"),
+            dossier_poly_backup_yaml=get_str("OS_DOSSIER_POLY_BACKUP_YAML", "_bak"),
+            dossier_poly_page_de_garde=get_str(
+                "OS_DOSSIER_POLY_PAGE_DE_GARDE", "page_de_garde"
+            ),
         )
 
 

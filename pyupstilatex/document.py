@@ -12,7 +12,8 @@ from slugify import slugify
 from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 from .exceptions import CompilationStepError
-from .filesystem import DocumentFile
+from .file_helpers import read_json_config
+from .file_system import DocumentFile
 from .handlers import (
     DocumentVersionHandler,
     HandlerUPSTIDocumentV1,
@@ -23,7 +24,6 @@ from .parsers import parse_package_imports
 from .storage import FileSystemStorage, StorageProtocol
 from .utils import (
     check_types,
-    read_json_config,
 )
 
 
@@ -631,6 +631,68 @@ class UPSTILatexDocument:
         self._version = version
         return version, errors
 
+    def get_metadata_value(
+        self, meta: str, key: Optional[str] = "raw_value"
+    ) -> Optional[any]:
+        """Récupère la valeur d'une métadonnée spécifique.
+
+        Accède aux métadonnées du document et retourne la valeur associée à une
+        clé particulière d'une métadonnée donnée.
+
+        Paramètres
+        ----------
+        meta : str
+            Nom de la métadonnée à récupérer (ex: "titre", "auteur", "classe").
+        key : Optional[str], optional
+            Clé de la valeur à extraire de la métadonnée.
+            Valeurs courantes : "raw_value", "valeur", "affichage", "initiales".
+            Par défaut : "raw_value".
+
+        Retourne
+        --------
+        Optional[any]
+            La valeur associée à la clé demandée, ou None si la métadonnée
+            ou la clé n'existe pas.
+        """
+        # Récupérer les métadonnées (utilise le cache si disponible)
+        metadata, _ = self.get_metadata()
+
+        if metadata is None:
+            return None
+
+        # Vérifier si la métadonnée existe
+        if meta not in metadata:
+            return None
+        meta_data = metadata[meta]
+
+        # Vérifier si la clé existe dans la métadonnée
+        if not isinstance(meta_data, dict) or key not in meta_data:
+            return None
+
+        return meta_data[key]
+
+    def get_competences(self) -> List[str]:
+        """Récupère la liste des compétences associées au document.
+
+        Retourne
+        --------
+        List[str]
+            Liste des compétences, chaque compétence étant un code compétence
+            correspondant à la classe et au programme du document.
+        """
+        competences: List[str] = []
+
+        competences_raw = self.get_metadata_value("competences")
+        filiere = self.get_metadata_value("filiere")
+        programme = self.get_metadata_value("programme")
+
+        if competences_raw is not None and filiere in competences_raw:
+            competences_pour_filiere = competences_raw[filiere]
+            if programme in competences_pour_filiere:
+                competences = competences_pour_filiere[programme]
+
+        return competences
+
     def _get_handler(self) -> DocumentVersionHandler:
         """Retourne le handler approprié selon la version (lazy initialization).
 
@@ -1067,7 +1129,7 @@ class UPSTILatexDocument:
         failed_deletions: List[List[str]] = []
 
         parent = chemin_actuel.parent
-        build_dir = parent / cfg.os.dossier_build_latex
+        build_dir = parent / cfg.os.dossier_latex_build
 
         if build_dir.exists() and build_dir.is_dir():
             try:
@@ -1180,8 +1242,8 @@ class UPSTILatexDocument:
         # Création du chemin du fichier QRcode
         images_dir = (
             self.file.parent
-            / str(cfg.os.dossier_sources_latex)
-            / str(cfg.os.dossier_sources_latex_images)
+            / str(cfg.os.dossier_latex_sources)
+            / str(cfg.os.dossier_latex_sources_images)
         )
         if not compilation_options["dry_run"]:
             try:
@@ -1507,7 +1569,7 @@ class UPSTILatexDocument:
 
         # Compilation des différents fichiers
         nombre_compilations = cfg.compilation.latex_nombre_compilations
-        build_dir = cfg.os.dossier_build_latex
+        build_dir = cfg.os.dossier_latex_build
         output_dir = self.file.parent
 
         # Pour savoir si on doit faire une compilation bibtex
@@ -1734,8 +1796,8 @@ class UPSTILatexDocument:
                 shutil.copy2(fichier_source, fichier_cible)
 
             # Copie du dossier sources dans le dossier temporaire
-            dossier_source = self.file.parent / cfg.os.dossier_sources_latex
-            dossier_cible = zip_tmp_folder / cfg.os.dossier_sources_latex
+            dossier_source = self.file.parent / cfg.os.dossier_latex_sources
+            dossier_cible = zip_tmp_folder / cfg.os.dossier_latex_sources
             if not compilation_options["dry_run"]:
                 shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
 
@@ -2386,18 +2448,7 @@ class UPSTILatexDocument:
                             )
                             continue
 
-                        programme_value = declaration.get("pg")
-                        if programme_value in (None, ""):
-                            competence_errors.append(
-                                (
-                                    "La filière '"
-                                    f"{filiere}"
-                                    "' doit indiquer un programme (clé 'pg')."
-                                )
-                            )
-                            continue
-
-                        programme_key = str(programme_value)
+                        # declaration est maintenant {annee: [codes]}
                         filiere_cfg = competence_cfg.get(filiere)
                         if not isinstance(filiere_cfg, dict):
                             competence_errors.append(
@@ -2409,45 +2460,46 @@ class UPSTILatexDocument:
                             )
                             continue
 
-                        programme_cfg = filiere_cfg.get(programme_key)
-                        if not isinstance(programme_cfg, dict):
-                            competence_errors.append(
-                                (
-                                    "Le programme "
-                                    f"{programme_key}"
-                                    " pour la filière "
-                                    f"{filiere}"
-                                    " n'existe pas."
+                        # Parcourir chaque programme (année) et ses compétences
+                        for programme_key, competences_codes in declaration.items():
+                            programme_cfg = filiere_cfg.get(programme_key)
+                            if not isinstance(programme_cfg, dict):
+                                competence_errors.append(
+                                    (
+                                        "Le programme "
+                                        f"{programme_key}"
+                                        " pour la filière "
+                                        f"{filiere}"
+                                        " n'existe pas."
+                                    )
                                 )
-                            )
-                            continue
+                                continue
 
-                        competences_codes = declaration.get("cp", [])
-                        if not isinstance(competences_codes, list):
-                            competence_errors.append(
-                                (
-                                    "Les compétences sélectionnées pour "
-                                    f"'{filiere}'"
-                                    " doivent être une liste (clé 'cp')."
+                            if not isinstance(competences_codes, list):
+                                competence_errors.append(
+                                    (
+                                        "Les compétences sélectionnées pour "
+                                        f"'{filiere}' (programme {programme_key})"
+                                        " doivent être une liste."
+                                    )
                                 )
-                            )
-                            continue
+                                continue
 
-                        missing_codes = [
-                            code
-                            for code in competences_codes
-                            if code not in programme_cfg
-                        ]
-                        if missing_codes:
-                            competence_errors.append(
-                                (
-                                    "Compétence(s) inconnue(s) pour "
-                                    f"{filiere}"
-                                    " (programme "
-                                    f"{programme_key}"
-                                    f"): {missing_codes}."
+                            missing_codes = [
+                                code
+                                for code in competences_codes
+                                if code not in programme_cfg
+                            ]
+                            if missing_codes:
+                                competence_errors.append(
+                                    (
+                                        "Compétence(s) inconnue(s) pour "
+                                        f"{filiere}"
+                                        " (programme "
+                                        f"{programme_key}"
+                                        f"): {missing_codes}."
+                                    )
                                 )
-                            )
 
                     if competence_errors:
                         self._handle_invalid_meta(

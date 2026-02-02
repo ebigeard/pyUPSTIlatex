@@ -9,8 +9,8 @@ le code dans la classe principale UPSTILatexDocument.
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
+from .file_helpers import read_json_config
 from .parsers import find_tex_entity, parse_metadata_tex, parse_metadata_yaml
-from .utils import read_json_config
 
 if TYPE_CHECKING:
     from .document import UPSTILatexDocument
