@@ -1,5 +1,9 @@
 import pytest
-from pyupstilatex.parsers import parse_yaml_front_matter, parse_named_zones, parse_tex_commands
+from pyUPSTIlatex.pyupstilatex.file_latex_helpers import (
+    parse_named_zones,
+    parse_tex_commands,
+    parse_yaml_front_matter,
+)
 
 
 def test_yaml():

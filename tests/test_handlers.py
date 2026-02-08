@@ -7,8 +7,8 @@ import pytest
 from pyupstilatex.document import UPSTILatexDocument
 from pyupstilatex.handlers import (
     DocumentVersionHandler,
-    HandlerUPSTIDocumentV1,
-    HandlerUPSTIDocumentV2,
+    HandlerUPSTIDocument,
+    HandlerUpstiLatex,
 )
 
 
@@ -23,14 +23,14 @@ def test_handler_lazy_initialization():
 
 
 def test_v1_handler_selection():
-    """Vérifie que HandlerUPSTIDocumentV1 est sélectionné pour un document v1."""
+    """Vérifie que HandlerUPSTIDocument est sélectionné pour un document v1."""
     # Simuler un document v1 (nécessite un vrai fichier ou mock)
     # Ce test nécessiterait un fichier .tex v1 réel ou un mock
     pass
 
 
 def test_v2_handler_selection():
-    """Vérifie que HandlerUPSTIDocumentV2 est sélectionné pour un document v2."""
+    """Vérifie que HandlerUpstiLatex est sélectionné pour un document v2."""
     # Simuler un document v2 (nécessite un vrai fichier ou mock)
     # Ce test nécessiterait un fichier .tex v2 réel ou un mock
     pass
@@ -38,11 +38,11 @@ def test_v2_handler_selection():
 
 def test_handler_interface():
     """Vérifie que tous les handlers implémentent l'interface correcte."""
-    from pyupstilatex.handlers import HandlerUPSTIDocumentV1, HandlerUPSTIDocumentV2
+    from pyupstilatex.handlers import HandlerUPSTIDocument, HandlerUpstiLatex
 
     # Vérifier que les handlers héritent de la classe abstraite
-    assert issubclass(HandlerUPSTIDocumentV1, DocumentVersionHandler)
-    assert issubclass(HandlerUPSTIDocumentV2, DocumentVersionHandler)
+    assert issubclass(HandlerUPSTIDocument, DocumentVersionHandler)
+    assert issubclass(HandlerUpstiLatex, DocumentVersionHandler)
 
     # Vérifier que les méthodes abstraites sont implémentées
     required_methods = [
@@ -52,7 +52,7 @@ def test_handler_interface():
         'supprimer_metadonnee',
     ]
 
-    for handler_class in [HandlerUPSTIDocumentV1, HandlerUPSTIDocumentV2]:
+    for handler_class in [HandlerUPSTIDocument, HandlerUpstiLatex]:
         for method in required_methods:
             assert hasattr(handler_class, method)
             assert callable(getattr(handler_class, method))

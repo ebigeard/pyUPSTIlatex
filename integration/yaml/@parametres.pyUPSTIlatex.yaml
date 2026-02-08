@@ -1,17 +1,17 @@
 ---
-#######################################################################################
+#=======================================================================================
 # pyUPSTIlatex - Configuration pour la compilation rapide des fichiers tex
-#--------------------------------------------------------------------------------------
+#=======================================================================================
 # https://s2i.bigeard.me/pyupstilatex
 # Emmanuel Bigeard - s2i@bigeard.me
-#--------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------
 # Les options de compilation des fichiers tex sont définies par défaut dans le fichier
 # .env à la racine du projet pyUPSTIlatex.
 #
 # Si ce fichier @parametres.pyUPSTIlatex.yaml est dans le même dossier que le fichier
 # tex à compiler, les valeurs définies ici écraseront les valeurs par défaut du fichier
 # .env (pour le fichier tex de ce dossier uniquement).
-#######################################################################################
+#=======================================================================================
 
 # Si on doit compiler ou ignorer ce document
 compiler: true
@@ -44,7 +44,7 @@ dossier_ftp: "/test/"
 surcharge_metadonnees:
   # Ici, on peut surcharger les métadonnées du document
 
-#######################################################################################
+#=======================================================================================
 # NOTE : si ce fichier est absent dans un dossier contenant un fichier tex à compiler,
 #        les valeurs par défaut seront appliquées.
-#######################################################################################
+#=======================================================================================

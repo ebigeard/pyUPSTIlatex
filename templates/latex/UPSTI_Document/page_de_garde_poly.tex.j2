@@ -1,0 +1,74 @@
+%=======================================================================================
+% pyUPSTIlatex - Template pour la page de garde des polys
+%=======================================================================================
+% Emmanuel Bigeard - s2i@bigeard.me
+% https://s2i.bigeard.me/pyupstilatex
+%---------------------------------------------------------------------------------------
+%  - Ce fichier peut-être overridé (à condition de conserver les 
+%    balises spécifiques), en le plaçant dans le dossier 
+%    custom/templates/latex/UPSTI_Document à la racine du projet.
+%=======================================================================================
+\documentclass[11pt]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Package UPSTI_Document
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+\RequirePackage{UPSTI_Document}
+
+%---------------------------------%
+% Paramètres du package
+%---------------------------------%
+
+% Version du document (pour la compilation)
+\newcommand{\UPSTIidVersionDocument}{2}
+
+% Choix du type de document
+\newcommand{\UPSTIidTypeDocument}{<< id_type_document >>}
+
+% Variante
+\newcommand{\UPSTIvariante}{<< id_variante >>}
+
+% Classe
+\newcommand{\UPSTIidClasse}{<< id_classe >>}
+
+% Titre du document (dans l'en-tête)
+\newcommand{\UPSTItitreEnTete}{<< nom_chapitre >>}      
+
+% Message
+\newcommand{\UPSTImessage}{Poly de << affichage_type_document >>}
+
+% Version
+\newcommand{\UPSTInumeroVersion}{<< version >>}
+                 
+%----------------------------------------------- 
+\UPSTIcompileVars		% "Compile" les variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+% Début du document
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+\begin{document}
+
+% Création de l'en-tête
+\UPSTIbuildPage 
+\UPSTIlogoPageDeGarde{<< logo >>}
+
+\UPSTIcompetences
+\UPSTItableauCompetences{
+<% for code in competences %>
+\UPSTIligneTableauCompetence{<< code >>}
+<% endfor %>
+}
+
+\pagebreak
+\UPSTIprofEleve{\section*{Sommaire des corrigés}}{\section*{Sommaire}}
+<% for section_fichier in fichiers %>
+\subsection*{<< section_fichier.section >>}
+\begin{enumerate}
+<% for fichier in section_fichiers.liste %>
+\item << fichier >>
+<% endfor %>
+\end{enumerate}
+<% endfor %>
+
+\end{document}

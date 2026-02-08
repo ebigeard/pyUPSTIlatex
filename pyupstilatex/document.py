@@ -13,14 +13,14 @@ from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 from .exceptions import CompilationStepError
 from .file_helpers import read_json_config
+from .file_latex_helpers import parse_package_imports
 from .file_system import DocumentFile
 from .handlers import (
     DocumentVersionHandler,
-    HandlerUPSTIDocumentV1,
-    HandlerUPSTIDocumentV2,
+    HandlerUPSTIDocument,
+    HandlerUpstiLatex,
 )
 from .logger import MessageHandler, NoOpMessageHandler
-from .parsers import parse_package_imports
 from .storage import FileSystemStorage, StorageProtocol
 from .utils import (
     check_types,
@@ -161,7 +161,7 @@ class UPSTILatexDocument:
 
     @property
     def version(self):
-        """Retourne la version du document (UPSTI_Document_v1/v2, EPB_Cours)."""
+        """Retourne la version du document (UPSTI_Document, upsti-latex, EPB_Cours)."""
         if self._version is not None:
             return self._version
         return self.get_version()[0]
@@ -192,7 +192,7 @@ class UPSTILatexDocument:
         mode : str, optional
             Mode de compilation. Valeurs acceptées :
             - "deep"  : génère le fichier LaTeX complet à partir des métadonnées
-                         (utile pour les documents `UPSTI_Document_v2`).
+                         (utile pour les documents `upsti-latex`).
             - "normal": compilation suivie d'un upload si configuré.
             - "quick" : seulement génération des PDF.
         verbose : str, optional
@@ -300,7 +300,7 @@ class UPSTILatexDocument:
             messages_compilation.extend(messages)
 
             # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
-            if self.version == "UPSTI_Document_v2":
+            if self.version == "upsti-latex":
                 resultat, messages = self._cp_step(
                     mode_ok=["deep"],
                     affichage="Génération du code latex à partir des métadonnées",
@@ -309,14 +309,14 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-            # 9- Générer le fichier UPSTI_Document_v1 (si UPSTI_Document v2)
-            if self.version == "UPSTI_Document_v2":
+            # 9- Générer le fichier UPSTI_Document (si upsti-latex)
+            if self.version == "upsti-latex":
                 resultat, messages = self._cp_step(
                     affichage=(
-                        "Création du fichier tex UPSTI_Document_v1 "
+                        "Création du fichier tex UPSTI_Document "
                         "(pour la rétrocompatibilité)"
                     ),
-                    fonction=self._cp_generate_UPSTI_Document_v1_tex_file,
+                    fonction=self._cp_generate_UPSTI_Document_tex_file,
                     compilation_options=compilation_cli_options,
                 )
                 messages_compilation.extend(messages)
@@ -427,8 +427,8 @@ class UPSTILatexDocument:
         """Ajoute ou modifie une métadonnée dans le document.
 
         Délègue l'opération au handler spécifique à la version du document.
-        Pour UPSTI_Document_v1 : commande LaTeX \\UPSTImeta<key>{value}
-        Pour UPSTI_Document_v2 : entrée dans le bloc YAML
+        Pour UPSTI_Document : commande LaTeX \\UPSTImeta<key>{value}
+        Pour upsti-latex : entrée dans le bloc YAML
 
         Paramètres
         ----------
@@ -597,8 +597,8 @@ class UPSTILatexDocument:
         """Retourne la version du document (avec cache).
 
         Détecte automatiquement le format du document parmi :
-        - UPSTI_Document_v2 (métadonnées YAML)
-        - UPSTI_Document_v1 (métadonnées LaTeX)
+        - upsti-latex (métadonnées YAML)
+        - UPSTI_Document (métadonnées LaTeX)
         - EPB_Cours (format non supporté)
 
         Retourne
@@ -618,7 +618,7 @@ class UPSTILatexDocument:
 
         # Si demandé, vérifier explicitement la compatibilité de la version
         if check_compatibilite:
-            if version not in ("UPSTI_Document_v1", "UPSTI_Document_v2"):
+            if version not in ("UPSTI_Document", "upsti-latex"):
                 return None, [
                     [
                         f"Les documents {version} ne sont pas pris en charge par "
@@ -715,7 +715,7 @@ class UPSTILatexDocument:
         Retourne
         --------
         DocumentVersionHandler
-            L'instance du handler (HandlerUPSTIDocumentV1 ou HandlerUPSTIDocumentV2).
+            L'instance du handler (HandlerUPSTIDocument ou HandlerUpstiLatex).
 
         Raises
         ------
@@ -725,15 +725,15 @@ class UPSTILatexDocument:
         if self._handler is None:
             version = self.version  # Détecte la version si pas encore fait
 
-            if version == "UPSTI_Document_v1":
-                self._handler = HandlerUPSTIDocumentV1(self)
-            elif version == "UPSTI_Document_v2":
-                self._handler = HandlerUPSTIDocumentV2(self)
+            if version == "UPSTI_Document":
+                self._handler = HandlerUPSTIDocument(self)
+            elif version == "upsti-latex":
+                self._handler = HandlerUpstiLatex(self)
             else:
                 raise ValueError(
                     f"Version non supportée: {version}. "
                     "Les versions supportées sont : "
-                    "UPSTI_Document_v1, UPSTI_Document_v2"
+                    "UPSTI_Document, upsti-latex"
                 )
 
         return self._handler
@@ -1389,7 +1389,7 @@ class UPSTILatexDocument:
         # On génère le code LaTeX complet à partir des métadonnées
         return None, [["Non implémenté.", "info"]]
 
-    def _cp_generate_UPSTI_Document_v1_tex_file(
+    def _cp_generate_UPSTI_Document_tex_file(
         self,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Génère un fichier LaTeX v1 pour rétrocompatibilité (méthode interne).
@@ -2182,8 +2182,8 @@ class UPSTILatexDocument:
         --------
         tuple[Optional[str], List[List[str]]]
             (version_string, messages) où version_string peut être :
-            - "UPSTI_Document_v2" (front-matter YAML)
-            - "UPSTI_Document_v1" (package LaTeX)
+            - "upsti-latex" (front-matter YAML)
+            - "UPSTI_Document" (package LaTeX)
             - "EPB_Cours" (ancien format)
             - None (version non reconnue)
         """
@@ -2198,11 +2198,11 @@ class UPSTILatexDocument:
                 # UPSTI_Document v2 (ligne commençant par % mais pas %%)
                 if stripped.startswith("%") and not stripped.startswith("%%"):
                     if "%### BEGIN metadonnees_yaml ###" in stripped:
-                        return "UPSTI_Document_v2", []
+                        return "upsti-latex", []
 
             packages = parse_package_imports(content)
             if "UPSTI_Document" in packages:
-                return "UPSTI_Document_v1", []
+                return "UPSTI_Document", []
             if "EPB_Cours" in packages:
                 return "EPB_Cours", []
 
@@ -2744,3 +2744,12 @@ class UPSTILatexDocument:
                 flag,
             ]
         )
+
+
+# TODO à ajouter
+# Je pense qu'il faut sortir de la classe Document tout ce qui concerne la
+# gestion/validation des métadonnées
+
+# def get_id_upsti_document
+
+# def get_default_value

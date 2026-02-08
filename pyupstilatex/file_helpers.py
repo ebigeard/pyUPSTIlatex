@@ -12,11 +12,18 @@ from .accessibilite import VERSIONS_ACCESSIBLES_DISPONIBLES
 from .config import load_config
 
 
-def get_template_env() -> Environment:
+def get_template_env(use_latex_delimiters: bool = False) -> Environment:
     """Retourne l'environnement Jinja2 configuré pour les templates.
 
     Cherche d'abord dans custom/templates/ puis dans templates/ pour permettre
     la surcharge des templates par l'utilisateur.
+
+    Paramètres
+    ----------
+    use_latex_delimiters : bool, optional
+        Si True, utilise des délimiteurs compatibles LaTeX (<< >>, <% %>)
+        au lieu des délimiteurs standard ({{ }}, {% %}).
+        Défaut : False.
 
     Retourne
     --------
@@ -35,12 +42,28 @@ def get_template_env() -> Environment:
         ]
     )
 
-    env = Environment(
-        loader=loader,
-        autoescape=select_autoescape(),
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
+    # Configuration selon le type de template
+    if use_latex_delimiters:
+        # Délimiteurs compatibles LaTeX pour éviter les conflits avec {}
+        env = Environment(
+            loader=loader,
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+            block_start_string='<%',
+            block_end_string='%>',
+            variable_start_string='<<',
+            variable_end_string='>>',
+        )
+    else:
+        # Délimiteurs standard Jinja2
+        env = Environment(
+            loader=loader,
+            autoescape=select_autoescape(),
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
     return env
 
 
@@ -53,7 +76,7 @@ def scan_for_documents(
     """Scanne un ou plusieurs dossiers à la recherche de fichiers LaTeX.
 
     Analyse tous les fichiers .tex et .ltx trouvés et les classe selon leur
-    compatibilité avec pyUPSTIlatex (UPSTI_Document_v1 ou UPSTI_Document_v2).
+    compatibilité avec pyUPSTIlatex (UPSTI_Document ou upsti-latex).
     Retourne la liste filtrée selon le mode demandé.
 
     Paramètres
@@ -186,8 +209,8 @@ def scan_for_documents(
 
             # Déterminer la compatibilité
             compatible = version in {
-                "UPSTI_Document_v1",
-                "UPSTI_Document_v2",
+                "UPSTI_Document",
+                "upsti-latex",
                 "EPB_Cours",
             }
 
@@ -358,12 +381,11 @@ def create_yaml_for_poly(
     # Initialisation des données avec valeurs par défaut
     data_poly = {
         "type_document": poly_type,
-        "version_latex": "UPSTI_Document_v1",
+        "version_latex": "UPSTI_Document",
         "nom_chapitre": "[Impossible de trouver le nom du chapitre]",
         "logo": "[Impossible de trouver le fichier logo]",
-        "classe": "PT",
-        "filiere": "PT",
-        "variante": "jean-zay",
+        "classe": cfg.meta.classe,
+        "variante": cfg.meta.variante,
         "versions_accessibles": [],
         "version": "1.0",
         "fichiers": {},
@@ -441,7 +463,6 @@ def create_yaml_for_poly(
             data_poly["nom_chapitre"] = doc_cours.get_metadata_value("titre")
             data_poly["variante"] = doc_cours.get_metadata_value("variante")
             data_poly["classe"] = doc_cours.get_metadata_value("classe")
-            data_poly["filiere"] = doc_cours.get_metadata_value("filiere")
 
             # On cherche le logo
             chemin_logo = doc_cours.get_logo()
@@ -492,7 +513,6 @@ def create_yaml_for_poly(
         # On vérifie si c'est un TD et on récupère les infos utiles
         if doc.get_metadata_value("type_document") == poly_type:
             fichier["variante"] = doc.get_metadata_value("variante")
-            fichier["filiere"] = doc.get_metadata_value("filiere")
             fichier["programme"] = doc.get_metadata_value("programme")
             fichier["competences"] = doc.get_competences()
             liste_filtree.append(fichier)
@@ -638,28 +658,66 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
     # 1. Lecture du fichier YAML et récupération des données
     msg.info("Lecture du fichier YAML et récupération des données", "info")
 
+    try:
+        import yaml
+
+        with open(chemin_fichier_yaml, "r", encoding="utf-8") as f:
+            yaml_data = yaml.safe_load(f)
+
+    except Exception as e:
+        msg.affiche_messages(
+            [[f"Impossible de lire le fichier YAML : {e}", "fatal_error"]],
+            "resultat_item",
+        )
+        return False, []
+
+    # Vérifications des données d'accessibilité
+    raw = yaml_data.get("versions_accessibles", [])
+    items = (
+        (v.strip() for v in raw.split(","))
+        if isinstance(raw, str)
+        else (str(v).strip() for v in raw) if isinstance(raw, list) else ()
+    )
+
+    allowed = VERSIONS_ACCESSIBLES_DISPONIBLES
+    yaml_data["versions_accessibles"] = [v for v in items if v and v in allowed]
+
+    msg.affiche_messages(
+        [["Données YAML récupérées avec succès", "success"]],
+        "resultat_item",
+    )
+
+    # 2. Préparation des données du poly selon la version LaTeX
+    msg.info("Vérification et normalisation des données du fichier YAML", "info")
+
+    from .handlers import prepare_poly_data
+
+    yaml_data_prepared, prepare_errors = prepare_poly_data(yaml_data, msg)
+
+    # if prepare_errors:
+    #     msg.affiche_messages(prepare_errors, "resultat_item")
+
+    if yaml_data_prepared is None:
+        msg.affiche_messages(
+            [["Impossible de préparer les données du poly.", "fatal_error"]],
+            "resultat_item",
+        )
+        return False, prepare_errors
+
+    prepare_errors.append(["Données préparées avec succès", "success"])
+    msg.affiche_messages(prepare_errors, "resultat_item")
+
+    # 3. Création de la page de garde
+
+    #
+    #
+    # CONTINUE: faut générer le le fichier tex et le compiler
+    #
+    #
+
+    # 4. Création du pdf final
+
     '''
-    # Nettoyage des options
-    if not "verbose" in options:
-        options["verbose"] = True
-
-    self.affiche_message(
-        {
-            "texte": "Création du poly de TD à partir du fichier xml",
-            "type": "titre1",
-            "verbose": options["verbose"],
-        }
-    )
-
-    # Récupérer les données du fichier xml
-    self.affiche_message(
-        {
-            "texte": "Extraction des données depuis le fichier xml.",
-            "type": "action",
-            "verbose": options["verbose"],
-        }
-    )
-
     with open(chemin_fichier_xml, "r", encoding="utf-8") as fic:
         contenu_xml = fic.read()
 

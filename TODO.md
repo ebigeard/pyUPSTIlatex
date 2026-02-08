@@ -4,6 +4,7 @@
 - Il faut finir pyUPSTIlatex avant de faire le site (sauf tout ce qui concerne la compilation v2)
 - Faire un .env exemple
 - Changer UPSTI_Document_v2 en upsti-latex
+- Créer l'icône pyUPSTIlatex.ico
 
 ## En cours
 
@@ -18,7 +19,7 @@
 
 - UPSTILatexDocument
   - TODO : `\_generate_latex_template`
-  - TODO : `\_generate_UPSTI_Document_v1_tex_file`
+  - TODO : `\_generate_UPSTI_Document_tex_file`
   - TODO : `\_create_accessible_version` : voir s'il faut passer par le handler pour créer les versions accessibles
 - Script d'adaptation à pyUPSTIlatex
   - mettre à jour les id_unique (ajout si manquant, détection de doublons)

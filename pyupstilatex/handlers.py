@@ -2,7 +2,7 @@
 Handlers de version pour les documents UPSTI.
 
 Ce module implémente le pattern Strategy pour gérer les opérations
-spécifiques à chaque version de document (v1, v2) sans dupliquer
+spécifiques à chaque version de document (UPSTI_Document et upsti-latex) sans dupliquer
 le code dans la classe principale UPSTILatexDocument.
 """
 
@@ -10,10 +10,12 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from .file_helpers import read_json_config
-from .parsers import find_tex_entity, parse_metadata_tex, parse_metadata_yaml
+from .file_latex_helpers import find_tex_entity, parse_metadata_tex, parse_metadata_yaml
 
 if TYPE_CHECKING:
     from .document import UPSTILatexDocument
+
+from .config import load_config
 
 
 class DocumentVersionHandler(ABC):
@@ -92,8 +94,8 @@ class DocumentVersionHandler(ABC):
         pass
 
 
-class HandlerUPSTIDocumentV1(DocumentVersionHandler):
-    """Handler pour les documents UPSTI_Document_v1.
+class HandlerUPSTIDocument(DocumentVersionHandler):
+    """Handler pour les documents UPSTI_Document.
 
     Les documents v1 stockent leurs métadonnées directement dans le code LaTeX
     sous forme de commandes personnalisées (\\UPSTImetaXXX{...}).
@@ -311,8 +313,8 @@ class HandlerUPSTIDocumentV1(DocumentVersionHandler):
             return None
 
 
-class HandlerUPSTIDocumentV2(DocumentVersionHandler):
-    """Handler pour les documents UPSTI_Document_v2.
+class HandlerUpstiLatex(DocumentVersionHandler):
+    """Handler pour les documents upsti-latex.
 
     Les documents v2 stockent leurs métadonnées dans un bloc YAML
     (front-matter) au début du fichier.
@@ -488,5 +490,75 @@ class HandlerUPSTIDocumentV2(DocumentVersionHandler):
         Optional[str]
             None (à implémenter ultérieurement).
         """
-        # TODO: Implémenter la récupération du logo pour UPSTI_Document_v2
+        # TODO: Implémenter la récupération du logo pour upsti-latex
         return None
+
+
+# ==============================================================================
+# Handlers pour la préparation des données de poly
+# ==============================================================================
+#
+# TODO A mettre dans document.py
+#
+def prepare_poly_data(yaml_data: Dict, msg) -> Tuple[Optional[Dict], List[List[str]]]:
+    """Prépare les données nécessaires à la génération d'un poly.
+
+    Cette fonction dispatche vers le handler approprié selon la version LaTeX
+    utilisée dans le document (UPSTI_Document ou upsti-latex).
+
+    Paramètres
+    ----------
+    yaml_data : Dict
+        Dictionnaire contenant les données du fichier YAML de configuration
+        du poly.
+    msg : Logger
+        Instance du logger pour afficher les messages.
+
+    Retourne
+    --------
+    Tuple[Optional[Dict], List[List[str]]]
+        (data_prepared, messages) où data_prepared contient les données
+        enrichies pour la génération du poly, ou None en cas d'erreur.
+        messages contient les erreurs/warnings rencontrés.
+    """
+    messages: List[List[str]] = []
+
+    version_latex = yaml_data.get("version_latex", "UPSTI_Document")
+
+    # Récupération de la configuration JSON
+    cfg, cfg_errors = read_json_config()
+    if cfg_errors:
+        return None, cfg_errors
+    if cfg is None:
+        messages.append(["Configuration JSON introuvable ou invalide.", "fatal_error"])
+        return None, messages
+
+    # On vérifie d'abord que les 3 clés à vérifier sont bien définies et existent
+    # Sinon, on applique les valeurs par défaut
+    cfg_env = load_config()
+    dafault_values = {
+        "type_document": "td",
+        "variante": cfg_env.meta.variante,
+        "classe": cfg_env.meta.classe,
+    }
+
+    for key, default in dafault_values.items():
+        if key not in yaml_data or not yaml_data[key] or yaml_data[key] not in cfg[key]:
+            messages.append(
+                [
+                    f"Clé '{key}' manquante ou non reconnue dans le YAML. "
+                    f"Utilisation de la valeur par défaut: '{default}'.",
+                    "warning",
+                ]
+            )
+            yaml_data[key] = default
+
+    if version_latex == "UPSTI_Document":
+
+        # Extraire les valeurs nécessaires
+        keys_to_convert = ["type_document", "variante", "classe"]
+        for key in keys_to_convert:
+            cle = yaml_data.get(key)
+            yaml_data[key] = cfg[key][cle]["id_upsti_document"]
+
+    return yaml_data, messages
