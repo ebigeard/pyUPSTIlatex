@@ -20,15 +20,15 @@ compiler: true
 renommer_automatiquement: true
 
 # Si on a un document "à trous" (pour lequel 2 versions doivent être compilées)
-est_un_document_a_trous: true
+est_un_document_a_trous: false
 
 # Versions à compiler
-versions:
+versions_a_compiler:
   - prof
   - eleve
 
 # Version accessibles à compiler (dys, dv...)
-versions_accessibles:
+versions_accessibles_a_compiler:
   - dys
   - dv
 

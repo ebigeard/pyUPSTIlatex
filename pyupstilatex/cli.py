@@ -4,7 +4,11 @@ import click
 
 from .config import load_config
 from .document import UPSTILatexDocument
-from .file_helpers import format_nom_documents_for_display, scan_for_documents
+from .file_helpers import (
+    display_version,
+    format_nom_documents_for_display,
+    scan_for_documents,
+)
 from .logger import (
     COLOR_DARK_GRAY,
     COLOR_GREEN,
@@ -49,8 +53,21 @@ def version(ctx, path: str):
 
     # Détection de version
     version, messages = doc.get_version()
+
     if version:
-        messages.append(f"Version détectée : {COLOR_GREEN}{version}{COLOR_RESET}")
+        msg.success("Version correctement détectée")
+        messages_version = [
+            [
+                f"pyUPSTIlatex : {COLOR_GREEN}v{version.get('pyupstilatex')}"
+                f"{COLOR_RESET}",
+                "resultat_item",
+            ],
+            [
+                f"latex : {COLOR_GREEN}{version['latex']}{COLOR_RESET}",
+                "resultat_item",
+            ],
+        ]
+        msg.affiche_messages(messages_version, "resultat_item")
 
     return _exit_with_messages(ctx, msg, messages)
 
@@ -68,6 +85,22 @@ def infos(ctx, path):
 
     # Vérification centralisée du chemin / document
     doc = _check_path(ctx, chemin)
+
+    # Version
+    version, messages = doc.get_version()
+    msg.info("Version")
+    messages_version = [
+        [
+            f"pyUPSTIlatex : {COLOR_GREEN}v{version.get('pyupstilatex')}{COLOR_RESET}",
+            "resultat_item",
+        ],
+        [
+            f"latex : {COLOR_GREEN}{version['latex']}{COLOR_RESET}",
+            "resultat_item",
+        ],
+    ]
+    msg.affiche_messages(messages_version, "resultat_item")
+    msg.separateur2()
 
     # Récupération des métadonnées selon la version
     metadata, messages = doc.get_metadata()
@@ -252,12 +285,17 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
         format_nom_documents_for_display(documents)
         display_key = "path" if show_full_path else "display_path"
         max_path = max(len(d[display_key]) for d in documents)
-        max_version = max(len(d["version"]) for d in documents)
+        max_version = max(
+            len(display_version(d["version_pyupstilatex"], d["version_latex"]))
+            for d in documents
+        )
 
         # Afficher chaque document
         for doc in sorted(documents, key=lambda x: x["path"]):
             path_padded = doc[display_key].ljust(max_path)
-            version_text = doc["version"].ljust(max_version)
+            version_text = display_version(
+                doc["version_pyupstilatex"], doc["version_latex"]
+            ).ljust(max_version)
 
             # Colorer la version selon le paramètre compiler
             version_colored = f"{COLOR_DARK_GRAY}│{COLOR_RESET} "
@@ -359,14 +397,20 @@ def compile(ctx, path, mode, dry_run):
 
         # Affichage de la liste des documents trouvés (avec numérotation)
         max_name = max(len(d["filename"]) for d in documents_a_compiler)
-        max_version = max(len(d["version"]) for d in documents_a_compiler)
+        max_version = max(
+            len(display_version(d["version_pyupstilatex"], d["version_latex"]))
+            for d in documents_a_compiler
+        )
 
         for idx, d in enumerate(
             sorted(documents_a_compiler, key=lambda x: x["filename"]), start=1
         ):
+            version_text = display_version(
+                d["version_pyupstilatex"], d["version_latex"]
+            )
             msg.info(
                 f"{d['filename']:{max_name}}  "
-                f"{COLOR_DARK_GRAY}│{COLOR_RESET} {d['version']:>{max_version}}"
+                f"{COLOR_DARK_GRAY}│{COLOR_RESET} {version_text:>{max_version}}"
             )
 
         if nb_documents > 1:
@@ -515,7 +559,7 @@ def poly(ctx, path, poly_type):
 
     # On récupère la config
     cfg = load_config()
-    nom_fichier_yaml = cfg.poly_td.nom_fichier_yaml
+    nom_fichier_yaml = cfg.os.nom_fichier_yaml_poly
 
     # Cas où le chemin fourni est invalide
     if not chemin.exists():
@@ -550,9 +594,9 @@ def poly(ctx, path, poly_type):
             resultat, messages = create_poly(chemin, msg)
 
             if resultat:
-                messages.append(["Le poly a été créé avec succès", "success"])
+                messages.append(["Les polys PDF ont été créés avec succès", "success"])
             else:
-                messages.append(["Le poly n'a pu être créé", "fatal_error"])
+                messages.append(["Les polys PDF n'ont pu être créés", "fatal_error"])
 
             return _exit_with_messages(ctx, msg, messages, separator_before=True)
 

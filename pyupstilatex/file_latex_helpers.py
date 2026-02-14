@@ -344,7 +344,7 @@ def write_tex_zone(text: str, zone_name: str, zone_content: str) -> str:
 
     if match:
         # Cas 1 : La zone BEGIN/END existe déjà
-        # Utiliser une fonction de remplacement pour éviter l'interprétation des backslashes
+        # Utiliser une fonction de remplacement pour éviter les pb de backslashes
         def replacer(m):
             return f"{m.group(1)}{zone_content}\n{m.group(3)}"
 

@@ -1,20 +1,43 @@
-"""Utilities to access configuration from environment variables.
+"""Configuration management from environment variables.
 
 This module assumes `.env` is automatically loaded at package import time
-(handled in pyupstilatex/__init__.py). It provides small helpers to fetch
-values with proper typing and reasonable defaults.
+(handled in pyupstilatex/__init__.py). It provides structured access to all
+configuration via dataclasses, as well as low-level helpers for direct access.
 
-Usage:
-    from pyupstilatex.config import get_str, get_int, get_bool
+Primary Usage (recommended):
+    from pyupstilatex.config import load_config
+
+    cfg = load_config()
+    print(cfg.meta.auteur)                    # Métadonnées par défaut
+    print(cfg.compilation.latex_nombre_compilations)  # Paramètres de compilation
+    print(cfg.os.dossier_latex)               # Configuration OS/fichiers
+    print(cfg.ftp.host)                       # Configuration FTP
+
+    # Les dataclasses sont immutables (frozen=True)
+
+Direct Access (for custom needs):
+    from pyupstilatex.config import get_str, get_int, get_bool, get_path, get_list
+
     ftp_user = get_str("FTP_USER", default="")
-    latex_recto = get_bool("POLY_TD_RECTO_VERSO", default=True)
-    nb_compil = get_int("COMPILATION_NOMBRE_COMPILATIONS_LATEX", default=2)
+    latex_recto = get_bool("POLY_RECTO_VERSO", default=True)
+    nb_compil = get_int("COMPILATION_LATEX_NOMBRE_COMPILATIONS", default=2)
+    dossiers = get_list("TRAITEMENT_PAR_LOT_DOSSIERS_A_TRAITER", sep=";")
+
+Configuration Sections:
+- MetaConfig: Valeurs par défaut des métadonnées documents
+- CompilationConfig: Paramètres de compilation LaTeX et PDF
+- OSConfig: Noms de fichiers, extensions, arborescence des dossiers
+- PolyConfig: Configuration des polys (pages par feuille, recto/verso)
+- TraitementParLotConfig: Dossiers à traiter et fichiers à exclure
+- FTPConfig: Paramètres de connexion FTP et mode local
+- SiteConfig: Configuration du site web (webhooks, URLs)
 
 Notes:
 - All values are read from os.environ at call time (no persistent cache),
   so changing env at runtime is reflected on next call.
 - For booleans, accepted values: 1, true, yes, y, on; falsy: 0, false, no, n, off.
 - For paths, get_path returns a pathlib.Path (no existence check).
+- For lists, get_list splits by separator (default ";") and filters empty strings.
 """
 
 from __future__ import annotations
@@ -33,8 +56,9 @@ __all__ = [
     # Dataclasses
     "MetaConfig",
     "CompilationConfig",
+    "OSConfig",
+    "PolyConfig",
     "TraitementParLotConfig",
-    "PolyTDConfig",
     "FTPConfig",
     "SiteConfig",
     "AppConfig",
@@ -139,6 +163,7 @@ class CompilationConfig:
 
     # Valeurs par défaut des paramètres de compilation
     compiler: bool
+    ignorer: bool
     renommer_automatiquement: bool
     versions_a_compiler: list[str]
     versions_accessibles_a_compiler: list[str]
@@ -160,6 +185,7 @@ class CompilationConfig:
         return cls(
             # Defaults (from COMPILATION_DEFAUT_* env vars)
             compiler=get_bool("COMPILATION_DEFAUT_COMPILER", True),
+            ignorer=get_bool("COMPILATION_DEFAUT_IGNORER", False),
             renommer_automatiquement=get_bool(
                 "COMPILATION_DEFAUT_RENOMMER_AUTOMATIQUEMENT", True
             ),
@@ -208,7 +234,7 @@ class OSConfig:
     suffixe_nom_fichier_a_trous: str
     suffixe_nom_fichier_diaporama: str
     suffixe_nom_fichier_sources: str
-    suffixe_nom_fichier_poly_td: str
+    suffixe_nom_fichier_poly: str
 
     # Dossiers et arborescence
     dossier_cours: str
@@ -255,7 +281,7 @@ class OSConfig:
                 "OS_SUFFIXE_NOM_DIAPORAMA", "-diaporama"
             ),
             suffixe_nom_fichier_sources=get_str("OS_SUFFIXE_NOM_SOURCES", "-sources"),
-            suffixe_nom_fichier_poly_td=get_str("OS_SUFFIXE_NOM_POLY_TD", "-poly-td"),
+            suffixe_nom_fichier_poly=get_str("OS_SUFFIXE_NOM_POLY", "-poly"),
             # Dossiers et arborescence
             dossier_cours=get_str("OS_DOSSIER_COURS", "Cours"),
             dossier_td=get_str("OS_DOSSIER_TD", "TD"),
@@ -278,28 +304,15 @@ class OSConfig:
 
 
 @dataclass(frozen=True)
-class PolyTDConfig:
+class PolyConfig:
     nombre_de_pages_par_feuille: int
     recto_verso: bool
-    dossier: str
-    nom_fichier_yaml: str
-    suffixe: str
-    template_page_de_garde: Path
 
     @classmethod
-    def from_env(cls) -> "PolyTDConfig":
+    def from_env(cls) -> "PolyConfig":
         return cls(
-            nombre_de_pages_par_feuille=get_int(
-                "POLY_TD_NOMBRE_DE_PAGES_PAR_FEUILLE", 2
-            ),
-            recto_verso=get_bool("POLY_TD_RECTO_VERSO", True),
-            dossier=get_str("POLY_TD_DOSSIER", "_poly"),
-            nom_fichier_yaml=get_str("POLY_TD_NOM_FICHIER_YAML", "poly.yaml"),
-            suffixe=get_str("POLY_TD_SUFFIXE", "-poly-td"),
-            template_page_de_garde=get_path(
-                "POLY_TD_TEMPLATE_PAGE_DE_GARDE",
-                "templates/page_de_garde_poly_td.template.tex",
-            ),
+            nombre_de_pages_par_feuille=get_int("POLY_NOMBRE_DE_PAGES_PAR_FEUILLE", 2),
+            recto_verso=get_bool("POLY_RECTO_VERSO", True),
         )
 
 
@@ -375,10 +388,10 @@ class AppConfig:
     meta: MetaConfig
     compilation: CompilationConfig
     os: OSConfig
+    poly: PolyConfig
     traitement_par_lot: TraitementParLotConfig
     ftp: FTPConfig
     site: SiteConfig
-    poly_td: PolyTDConfig
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -386,10 +399,10 @@ class AppConfig:
             meta=MetaConfig.from_env(),
             compilation=CompilationConfig.from_env(),
             os=OSConfig.from_env(),
+            poly=PolyConfig.from_env(),
             traitement_par_lot=TraitementParLotConfig.from_env(),
             ftp=FTPConfig.from_env(),
             site=SiteConfig.from_env(),
-            poly_td=PolyTDConfig.from_env(),
         )
 
 

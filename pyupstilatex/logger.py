@@ -332,5 +332,7 @@ class NoOpMessageHandler:
     def separateur3(self):
         pass
 
-    def affiche_messages(self, messages: list[object], type: str = "info"):
+    def affiche_messages(
+        self, messages: list[object], type: str = "info", format_last: bool = True
+    ):
         pass

@@ -16,9 +16,13 @@ from .file_helpers import read_json_config
 from .file_latex_helpers import parse_package_imports
 from .file_system import DocumentFile
 from .handlers import (
-    DocumentVersionHandler,
-    HandlerUPSTIDocument,
-    HandlerUpstiLatex,
+    DocumentLatexVersionHandler,
+    DocumentPyUpstiLatexVersionHandler,
+    HandlerLatexEPBCours,
+    HandlerLatexUPSTIDocument,
+    HandlerLatexUpstiLatex,
+    HandlerPyUpstiLatexV1,
+    HandlerPyUpstiLatexV2,
 )
 from .logger import MessageHandler, NoOpMessageHandler
 from .storage import FileSystemStorage, StorageProtocol
@@ -32,7 +36,7 @@ class UPSTILatexDocument:
     """Représente un document LaTeX UPSTI.
 
     Cette classe gère l'ensemble du cycle de vie d'un document LaTeX UPSTI :
-    - Détection automatique de la version (UPSTI_Document/upsti-latex/EPB)
+    - Détection automatique de la version (pyUPSTIlatex et latex)
     - Extraction et validation des métadonnées
     - Compilation avec gestion des versions élève/prof/accessibles
     - Post-traitements (copie, upload)
@@ -61,9 +65,15 @@ class UPSTILatexDocument:
     # === CHAMPS PRIVÉS (CACHE) ===
     _metadata: Optional[Dict] = field(default=None, init=False)
     _compilation_parameters: Optional[Dict] = field(default=None, init=False)
-    _version: Optional[str] = field(default=None, init=False)
+    _version: Optional[Dict[str, Optional[int | str]]] = field(default=None, init=False)
+
     _file: Optional[DocumentFile] = field(default=None, init=False)
-    _handler: Optional[DocumentVersionHandler] = field(default=None, init=False)
+    _pyupstilatex_handler: Optional[DocumentPyUpstiLatexVersionHandler] = field(
+        default=None, init=False
+    )
+    _latex_handler: Optional[DocumentLatexVersionHandler] = field(
+        default=None, init=False
+    )
     _liste_fichiers: Dict[str, List[Path]] = field(
         default_factory=lambda: {"compiled": [], "autres": []}, init=False
     )
@@ -322,7 +332,7 @@ class UPSTILatexDocument:
 
     @property
     def version(self):
-        """Retourne la version du document (UPSTI_Document, upsti-latex, EPB_Cours)."""
+        """Retourne la version du document (pyUPSTIlatex et latex)."""
         if self._version is not None:
             return self._version
         return self.get_version()[0]
@@ -344,7 +354,11 @@ class UPSTILatexDocument:
     # =========================================================================
 
     def compile(
-        self, mode: str = "normal", verbose: str = "normal", dry_run: bool = False
+        self,
+        mode: str = "normal",
+        verbose: str = "normal",
+        dry_run: bool = False,
+        override_compilation_params: Optional[Dict] = None,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le document LaTeX.
 
@@ -365,6 +379,9 @@ class UPSTILatexDocument:
         dry_run : bool, optional
             Si True, exécute un "dry run" où les actions sont affichées sans être
             réellement effectuées.
+        override_compilation_params : Optional[Dict], optional
+            Dictionnaire de paramètres de compilation à forcer. Ces paramètres
+            écrasent tous les autres (cfg + fichier local). Défaut : None.
 
         Retour
         -----
@@ -374,7 +391,6 @@ class UPSTILatexDocument:
             statuts), et `messages` est une liste de paires `[message, flag]` où
             `flag` est l'un de `info`, `warning`, `error`.
         """
-
         # Initialisation des retours
         messages_compilation: List[List[str]] = []
 
@@ -398,7 +414,7 @@ class UPSTILatexDocument:
             if compilation_cli_options["verbose"] in ["normal"]:
                 self.msg.titre2("Préparation de la compilation")
 
-            # 1- Vérification de l'intégrité du fichier
+            # === 1- Vérification de l'intégrité du fichier ===
             resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Vérification de l'intégrité du fichier",
@@ -407,7 +423,7 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
-            # 2- Vérification de la version
+            # === 2- Vérification de la version ===
             resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Détection de la version du document",
@@ -416,16 +432,18 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
-            # 3- Lecture des paramètres de compilation
+            # === 3- Lecture des paramètres de compilation ===
             resultat, messages = self._cp_step(
                 mode_ok=["deep", "normal", "quick"],
                 affichage="Lecture des paramètres de compilation",
-                fonction=self._cp_get_compilation_parameters,
+                fonction=lambda: self._cp_get_compilation_parameters(
+                    override_compilation_params
+                ),
                 compilation_options=compilation_cli_options,
             )
             messages_compilation.extend(messages)
 
-            # 4- Lecture des métadonnées
+            # === 4- Lecture des métadonnées ===
             resultat, messages = self._cp_step(
                 affichage="Lecture des métadonnées du fichier tex",
                 fonction=self.get_metadata,
@@ -433,7 +451,7 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
-            # 5- Vérification et changement de l'id unique du document
+            # === 5- Vérification et changement de l'id unique du document ===
             resultat, messages = self._cp_step(
                 affichage="Vérification de l'id unique du document",
                 fonction=self._cp_check_id_unique,
@@ -441,7 +459,7 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
-            # 6- Vérification et changement du nom du fichier
+            # === 6- Vérification et changement du nom du fichier ===
             if self.compilation_parameters.get("renommer_automatiquement", False):
                 resultat, messages = self._cp_step(
                     mode_ok=["deep"],
@@ -451,7 +469,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-            # 7- Générer le QRCode
+            # === 7- Générer le QRCode ===
             resultat, messages = self._cp_step(
                 mode_ok=["deep"],
                 affichage="Génération du QR code du document",
@@ -460,7 +478,7 @@ class UPSTILatexDocument:
             )
             messages_compilation.extend(messages)
 
-            # 8- Générer le code latex à partir des métadonnées (si UPSTI_Document v2)
+            # === 8- Générer le code latex à partir des métadonnées ===
             if self.version == "upsti-latex":
                 resultat, messages = self._cp_step(
                     mode_ok=["deep"],
@@ -470,7 +488,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-            # 9- Générer le fichier UPSTI_Document (si upsti-latex)
+            # === 9- Générer le fichier UPSTI_Document (si upsti-latex) ===
             if self.version == "upsti-latex":
                 resultat, messages = self._cp_step(
                     affichage=(
@@ -482,11 +500,11 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-            # Titre intermédiaire
+            # Affichage titre intermédiaire
             if compilation_cli_options["verbose"] in ["normal"]:
                 self.msg.titre2("Compilation du document LaTeX")
 
-            # 10- Compilation Latex (voir aussi pour bibtex, si on le gère ici)
+            # === 10- Compilation Latex (TODO voir pour bibtex, si on le gère ici) ===
             if compilation_cli_options["mode"] in ["deep", "normal", "quick"]:
                 resultat_compilation, messages_compilation_tex = (
                     self._cp_compile_tex_file(
@@ -511,7 +529,7 @@ class UPSTILatexDocument:
                 ] and compilation_cli_options["mode"] in ["deep", "normal"]:
                     self.msg.titre2("Post-traitements après compilation")
 
-            # 11- Copie des fichiers dans le dossier cible
+            # === 11- Copie des fichiers dans le dossier cible ===
             if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
                 resultat, messages = self._cp_step(
                     affichage="Copie des fichiers compilés dans le dossier cible",
@@ -520,13 +538,13 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-            # 12- Fin du post traitement
+            # === 12- Fin du post traitement ===
             # DEBUG
             # compilation_cli_options["dry_run"] = False
 
             if self.compilation_parameters.get("upload", False):
 
-                # 12a- Création du fichier zip des fichiers
+                # --- 12a- Création du fichier zip des fichiers ---
                 resultat, messages = self._cp_step(
                     affichage="Création du fichier zip",
                     fonction=self._cp_create_zip,
@@ -534,7 +552,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-                # 12b- Création du fichier meta à uploader
+                # --- 12b- Création du fichier meta à uploader ---
                 fichier_meta_created, messages = self._cp_step(
                     affichage="Création du fichier de synthèse JSON à uploader",
                     fonction=self._cp_create_info_file,
@@ -542,7 +560,7 @@ class UPSTILatexDocument:
                 )
                 messages_compilation.extend(messages)
 
-                # 12c- Upload des fichiers sur le FTP
+                # --- 12c- Upload des fichiers sur le FTP ---
                 if fichier_meta_created:
                     resultat_upload, messages = self._cp_step(
                         affichage="Upload des fichiers sur le FTP",
@@ -551,7 +569,7 @@ class UPSTILatexDocument:
                     )
                     messages_compilation.extend(messages)
 
-                # 12d- Webhook
+                # --- 12d- Webhook ---
                 if fichier_meta_created and resultat_upload:
                     resultat, messages = self._cp_step(
                         affichage="Déclenchement du webhook",
@@ -560,7 +578,7 @@ class UPSTILatexDocument:
                     )
                     messages_compilation.extend(messages)
 
-                # 12e- Nettoyage de fin de compilation
+                # --- 12e- Nettoyage de fin de compilation ---
                 resultat, messages = self._cp_step(
                     affichage="Nettoyage des fichiers temporaires",
                     fonction=self._cp_clean_temp_after_compilation,
@@ -609,31 +627,85 @@ class UPSTILatexDocument:
         >>> doc.ajouter_metadonnee("titre", "Mon nouveau titre")
         (True, [["Métadonnée 'titre' ajoutée avec succès.", "info"]])
         """
-        return self._get_handler().set_metadata(key, value)
+
+        pyupstilatex_set_metadata, pyupstilatex_messages = (
+            self._get_pyupstilatex_handler().set_metadata(key, value)
+        )
+        latex_set_metadata, latex_messages = self._get_latex_handler().set_metadata(
+            key, value
+        )
+
+        if pyupstilatex_set_metadata and latex_set_metadata:
+            return True, pyupstilatex_messages + latex_messages
+        elif pyupstilatex_set_metadata:
+            return True, pyupstilatex_messages + [
+                [
+                    "La métadonnée a été ajoutée dans pyUPSTIlatex, mais pas dans le "
+                    "code LaTeX. Vérifiez la compatibilité avec votre version de "
+                    "LaTeX.",
+                    "warning",
+                ]
+            ]
+        elif latex_set_metadata:
+            return True, latex_messages + [
+                [
+                    "La métadonnée a été ajoutée dans le code LaTeX, mais pas dans "
+                    "pyUPSTIlatex. Vérifiez la compatibilité avec votre version de "
+                    "pyUPSTIlatex.",
+                    "warning",
+                ]
+            ]
 
     def delete_metadata(self, key: str) -> Tuple[bool, List[List[str]]]:
         """Supprime une métadonnée existante.
 
         Délègue l'opération au handler spécifique à la version du document.
+        Pour UPSTI_Document : supprime la commande LaTeX \\UPSTImeta<key>
+        Pour upsti-latex : supprime l'entrée dans le bloc YAML
 
         Paramètres
         ----------
         key : str
-            Nom de la métadonnée à modifier.
-        value : any
-            Nouvelle valeur de la métadonnée.
+            Nom de la métadonnée à supprimer.
 
         Retourne
         --------
         Tuple[bool, List[List[str]]]
-            (success, messages) où success indique si la modification a réussi.
+            (success, messages) où success indique si la suppression a réussi,
+            et messages contient les infos/erreurs.
 
         Exemples
         --------
-        >>> doc.modifier_metadonnee("auteur", "Nouveau nom")
-        (True, [["Métadonnée 'auteur' modifiée avec succès.", "info"]])
+        >>> doc.delete_metadata("auteur")
+        (True, [["Métadonnée 'auteur' supprimée avec succès.", "info"]])
         """
-        return self._get_handler().delete_metadata(key)
+        pyupstilatex_delete_metadata, pyupstilatex_messages = (
+            self._get_pyupstilatex_handler().delete_metadata(key)
+        )
+        latex_delete_metadata, latex_messages = (
+            self._get_latex_handler().delete_metadata(key)
+        )
+
+        if pyupstilatex_delete_metadata and latex_delete_metadata:
+            return True, pyupstilatex_messages + latex_messages
+        elif pyupstilatex_delete_metadata:
+            return True, pyupstilatex_messages + [
+                [
+                    "La métadonnée a été supprimée dans pyUPSTIlatex, mais pas dans le "
+                    "code LaTeX. Vérifiez la compatibilité avec votre version de "
+                    "LaTeX.",
+                    "warning",
+                ]
+            ]
+        elif latex_delete_metadata:
+            return True, latex_messages + [
+                [
+                    "La métadonnée a été supprimée dans le code LaTeX, mais pas dans "
+                    "pyUPSTIlatex. Vérifiez la compatibilité avec votre version de "
+                    "pyUPSTIlatex.",
+                    "warning",
+                ]
+            ]
 
     # --- Récupération des données ---
 
@@ -657,7 +729,7 @@ class UPSTILatexDocument:
 
         # Déléguer le parsing au handler approprié selon la version
         try:
-            metadata, errors = self._get_handler().parse_metadata()
+            metadata, errors = self._get_pyupstilatex_handler().parse_metadata()
         except ValueError as e:
             # Version non supportée
             return None, [[str(e), "fatal_error"]]
@@ -698,37 +770,56 @@ class UPSTILatexDocument:
 
         return formatted, errors + formatted_errors
 
-    def get_compilation_parameters(self) -> tuple[Optional[Dict], List[List[str]]]:
+    def get_compilation_parameters(
+        self, override_params: Optional[Dict] = None
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère les paramètres de compilation du document.
 
         Charge la configuration centralisée depuis .env, puis fusionne les paramètres
         locaux si un fichier de paramètres existe dans le même répertoire que le
-        document. Résultat mis en cache.
+        document. Enfin, applique les paramètres forcés passés en argument.
+        Résultat mis en cache (sauf si override_params est fourni).
+
+        Ordre de priorité (du plus faible au plus fort) :
+        1. cfg.compilation (configuration centralisée .env)
+        2. Fichier YAML local (@parametres.pyUPSTIlatex.yaml)
+        3. override_params (dict passé en paramètre)
+
+        Paramètres
+        ----------
+        override_params : Optional[Dict], optional
+            Dictionnaire de paramètres à forcer. Ces paramètres écrasent tous
+            les autres (cfg + fichier local). Si fourni, le cache n'est pas utilisé
+            et le résultat n'est pas mis en cache. Défaut : None.
 
         Retourne
         --------
         tuple[Dict, List[List[str]]]
             (parametres, messages) où parametres contient les clés :
             - compiler: bool
+            - ignorer: bool
+            - renommer_automatiquement: bool
             - versions_a_compiler: list[str]
             - versions_accessibles_a_compiler: list[str]
             - est_un_document_a_trous: bool
             - copier_pdf_dans_dossier_cible: bool
             - upload: bool
+            - upload_diaporama: bool
             - dossier_ftp: str
             Messages contient warnings/erreurs si fichier local invalide.
         """
-        # Réutiliser le cache si déjà récupéré
-        if self._compilation_parameters is not None:
+        # Si override_params est fourni, on ignore le cache
+        if override_params is None and self._compilation_parameters is not None:
             return self._compilation_parameters, []
 
         errors: List[List[str]] = []
 
-        # Lire la configuration centralisée
+        # Lire la configuration centralisée (priorité 1)
         cfg = load_config()
 
         parametres_compilation = {
             "compiler": bool(cfg.compilation.compiler),
+            "ignorer": bool(cfg.compilation.ignorer),
             "renommer_automatiquement": bool(cfg.compilation.renommer_automatiquement),
             "versions_a_compiler": list(cfg.compilation.versions_a_compiler),
             "versions_accessibles_a_compiler": list(
@@ -739,34 +830,47 @@ class UPSTILatexDocument:
                 cfg.compilation.copier_pdf_dans_dossier_cible
             ),
             "upload": bool(cfg.compilation.upload),
+            "upload_diaporama": bool(cfg.compilation.upload_diaporama),
             "dossier_ftp": str(cfg.compilation.dossier_ftp),
         }
 
-        # Vérifier si un fichier de paramètres existe dans le même dossier
+        # Vérifier si un fichier de paramètres existe dans le même dossier (priorité 2)
         custom_params, custom_errors = self._read_fichier_parametres_compilation()
         if custom_errors:
             errors.extend(custom_errors)
         if custom_params:
             parametres_compilation.update(custom_params)
 
-        # Mettre en cache
-        self._compilation_parameters = parametres_compilation
+        # Appliquer les paramètres forcés (priorité 3)
+        if override_params:
+            parametres_compilation.update(override_params)
+            errors.append(
+                [
+                    f"Paramètres forcés appliqués : "
+                    f"{', '.join(override_params.keys())}",
+                    "info",
+                ]
+            )
+
+        # Mettre en cache seulement si pas d'override
+        if override_params is None:
+            self._compilation_parameters = parametres_compilation
+
         return parametres_compilation, errors
 
     def get_version(
         self, check_compatibilite: bool = False
-    ) -> tuple[Optional[str], List[List[str]]]:
+    ) -> tuple[Optional[Dict[str, Optional[int | str]]], List[List[str]]]:
         """Retourne la version du document (avec cache).
 
-        Détecte automatiquement le format du document parmi :
-        - upsti-latex (métadonnées YAML)
-        - UPSTI_Document (métadonnées LaTeX)
-        - EPB_Cours (format non supporté)
+        Détecte automatiquement la version de pyupstilatex et le package LaTeX utilisé.
 
         Retourne
         --------
-        tuple[Optional[str], List[List[str]]]
-            (version, messages) où version est le nom du format détecté ou None.
+        tuple[Optional[Dict[str, Optional[int | str]]], List[List[str]]]
+            (version_dict, messages) où version_dict contient :
+            - "pyupstilatex" : 1, 2 ou None (version de pyupstilatex)
+            - "latex" : "upsti-latex", "UPSTI_Document", "EPB_Cours" ou None
             Résultat mis en cache dans self._version.
         """
         if self._version is not None:
@@ -780,10 +884,14 @@ class UPSTILatexDocument:
 
         # Si demandé, vérifier explicitement la compatibilité de la version
         if check_compatibilite:
-            if version not in ("UPSTI_Document", "upsti-latex"):
+            latex_version = version.get("latex")
+            if version.get("pyupstilatex") is None or version.get("latex") not in (
+                "upsti-latex",
+                "UPSTI_Document",
+            ):
                 return None, [
                     [
-                        f"Les documents {version} ne sont pas pris en charge par "
+                        f"Les documents {latex_version} ne sont pas pris en charge par "
                         "pyUPSTIlatex. Il est néanmoins possible de les convertir en "
                         "utilisant : pyupstilatex migrate.",
                         "fatal_error",
@@ -875,7 +983,7 @@ class UPSTILatexDocument:
         Optional[str]
             Chemin vers le fichier logo UPSTI, ou None si non défini.
         """
-        return self._get_handler().get_logo()
+        return self._get_latex_handler().get_logo()
 
     def get_metadata_tex_declaration(self) -> str:
         """Génère les déclarations LaTeX des métadonnées du document.
@@ -888,8 +996,7 @@ class UPSTILatexDocument:
         str
             Les déclarations LaTeX (une par ligne), ou chaîne vide.
         """
-        print("UPSTILateXDocument.get_metadata_tex_declaration() called")
-        return self._get_handler().get_metadata_tex_declaration()
+        return self._get_latex_handler().get_metadata_tex_declaration()
 
     def write_tex_zone(
         self, zone_name: str, zone_content: str
@@ -950,38 +1057,80 @@ class UPSTILatexDocument:
 
         return success, messages
 
-    def _get_handler(self) -> DocumentVersionHandler:
-        """Retourne le handler approprié selon la version (lazy initialization).
+    def _get_pyupstilatex_handler(self) -> DocumentPyUpstiLatexVersionHandler:
+        """Retourne le handler pyupstilatex approprié (lazy initialization).
 
         Le handler est créé la première fois que cette méthode est appelée,
-        après détection de la version du document. Les appels suivants
-        retournent l'instance en cache.
+        en fonction de la version de pyupstilatex détectée (v1 ou v2).
 
         Retourne
         --------
-        DocumentVersionHandler
-            L'instance du handler (HandlerUPSTIDocument ou HandlerUpstiLatex).
+        DocumentPyUpstiLatexVersionHandler
+            L'instance du handler (HandlerPyUpstiLatexV1 ou HandlerPyUpstiLatexV2).
 
         Raises
         ------
         ValueError
-            Si la version du document n'est pas supportée.
+            Si la version pyupstilatex n'est pas supportée.
         """
-        if self._handler is None:
-            version = self.version  # Détecte la version si pas encore fait
+        if self._pyupstilatex_handler is None:
+            version_dict, _ = self.get_version()
 
-            if version == "UPSTI_Document":
-                self._handler = HandlerUPSTIDocument(self)
-            elif version == "upsti-latex":
-                self._handler = HandlerUpstiLatex(self)
+            if version_dict is None:
+                raise ValueError("Impossible de détecter la version du document.")
+
+            pyupstilatex_version = version_dict.get("pyupstilatex")
+
+            if pyupstilatex_version == 1:
+                self._pyupstilatex_handler = HandlerPyUpstiLatexV1(self)
+            elif pyupstilatex_version == 2:
+                self._pyupstilatex_handler = HandlerPyUpstiLatexV2(self)
             else:
                 raise ValueError(
-                    f"Version non supportée: {version}. "
-                    "Les versions supportées sont : "
-                    "UPSTI_Document, upsti-latex"
+                    f"Version pyupstilatex non supportée: {pyupstilatex_version}. "
+                    "Les versions supportées sont : 1, 2"
                 )
 
-        return self._handler
+        return self._pyupstilatex_handler
+
+    def _get_latex_handler(self) -> DocumentLatexVersionHandler:
+        """Retourne le handler LaTeX approprié (lazy initialization).
+
+        Le handler est créé la première fois que cette méthode est appelée,
+        en fonction du package LaTeX détecté (upsti-latex, UPSTI_Document, EPB_Cours).
+
+        Retourne
+        --------
+        DocumentLatexVersionHandler
+            L'instance du handler LaTeX approprié.
+
+        Raises
+        ------
+        ValueError
+            Si le package LaTeX n'est pas supporté.
+        """
+        if self._latex_handler is None:
+            version_dict, _ = self.get_version()
+
+            if version_dict is None:
+                raise ValueError("Impossible de détecter la version du document.")
+
+            latex_version = version_dict.get("latex")
+
+            if latex_version == "upsti-latex":
+                self._latex_handler = HandlerLatexUpstiLatex(self)
+            elif latex_version == "UPSTI_Document":
+                self._latex_handler = HandlerLatexUPSTIDocument(self)
+            elif latex_version == "EPB_Cours":
+                self._latex_handler = HandlerLatexEPBCours(self)
+            else:
+                raise ValueError(
+                    f"Package LaTeX non supporté: {latex_version}. "
+                    "Les packages supportés sont : "
+                    "upsti-latex, UPSTI_Document, EPB_Cours"
+                )
+
+        return self._latex_handler
 
     # =========================================================================
     # MÉTHODES PRIVÉES : ORCHESTRATION DE LA COMPILATION
@@ -1081,10 +1230,15 @@ class UPSTILatexDocument:
         return resultat, messages
 
     def _cp_get_compilation_parameters(
-        self,
+        self, override_params: Optional[Dict] = None
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Récupère les paramètres de compilation adaptés pour la compilation
         (méthode interne).
+
+        Paramètres
+        ----------
+        override_params : Optional[Dict], optional
+            Dictionnaire de paramètres à forcer. Défaut : None.
 
         Retourne
         --------
@@ -1093,7 +1247,9 @@ class UPSTILatexDocument:
             [message, flag].
         """
         # On utilise la méthode interne
-        comp_params, comp_params_messages = self.get_compilation_parameters()
+        comp_params, comp_params_messages = self.get_compilation_parameters(
+            override_params
+        )
 
         if comp_params is None:
             return None, comp_params_messages
@@ -1163,7 +1319,7 @@ class UPSTILatexDocument:
                     result = slugify(result, separator="_")
             return result
 
-        # 1. Récupérer le format depuis la config
+        # === 1. Récupérer le format depuis la config ===
         chemin_actuel = self.file.path
         cfg = load_config()
         format_nom_fichier = cfg.os.format_nom_fichier
@@ -1177,7 +1333,7 @@ class UPSTILatexDocument:
                 ]
             ]
 
-        # 2. Extraire les zones entre crochets
+        # === 2. Extraire les zones entre crochets ===
         pattern = r'\[([^\]]+)\]'
         placeholders = re.findall(pattern, format_nom_fichier)
 
@@ -1190,14 +1346,14 @@ class UPSTILatexDocument:
                 ]
             ]
 
-        # 3. Récupérer les métadonnées et la config JSON
+        # === 3. Récupérer les métadonnées et la config JSON ===
         metadata = self.metadata
         cfg_json, cfg_json_errors = read_json_config()
         if cfg_json_errors:
             return chemin_actuel.name, cfg_json_errors
         cfg_json = cfg_json or {}
 
-        # 4. Remplacer chaque placeholder par sa valeur dans les métadonnées
+        # === 4. Remplacer chaque placeholder par sa valeur dans les métadonnées ===
         nouveau_nom = format_nom_fichier
         for placeholder in placeholders:
             # Analyser le placeholder : peut contenir des filtres après |
@@ -1301,14 +1457,14 @@ class UPSTILatexDocument:
                         ]
                     ]
 
-        # 5. Construire le nouveau chemin complet
+        # === 5. Construire le nouveau chemin complet ===
         nouveau_chemin = self.file.parent / f"{nouveau_nom}{self.file.suffix}"
 
-        # 6. Vérifier si le nom a changé
+        # === 6. Vérifier si le nom a changé ===
         if nouveau_chemin == chemin_actuel:
             return chemin_actuel.name, []
 
-        # 7. Pré-vérifications : existence du fichier source et droit en écriture
+        # === 7. Vérifications : existence du fichier source et droit en écriture ===
         if not chemin_actuel.exists() or not chemin_actuel.is_file():
             return chemin_actuel.name, [
                 [f"Fichier source introuvable: {chemin_actuel}", "warning"]
@@ -1333,7 +1489,7 @@ class UPSTILatexDocument:
                 ]
             ]
 
-        # 8. Tenter le renommage physique
+        # === 8. Tenter le renommage physique ===
         if not compilation_options["dry_run"]:
             try:
                 chemin_actuel.rename(nouveau_chemin)
@@ -1362,7 +1518,7 @@ class UPSTILatexDocument:
                     ]
                 ]
 
-        # 9. Mise à jour de l'objet Document pour pointer vers le nouveau chemin
+        # === 9. Mise à jour de l'objet Document pour pointer vers le nouveau chemin ===
         try:
             self.source = str(nouveau_chemin)
             self._file = DocumentFile(
@@ -1380,7 +1536,7 @@ class UPSTILatexDocument:
                 ]
             ]
 
-        # 10. Suppression de tous les vieux fichiers liés (cache, compilés, etc.)
+        # === 10. Suppression de tous les vieux fichiers liés (cache, compilés, ...) ===
         messages: List[List[str]] = []
         deleted_files: List[str] = []
         failed_deletions: List[List[str]] = []
@@ -1423,7 +1579,7 @@ class UPSTILatexDocument:
 
         messages.extend(failed_deletions)
 
-        # 11. Renommer tous les pdf du dossier cible si besoin
+        # === 11. Renommer tous les pdf du dossier cible si besoin ===
         if self.compilation_parameters.get("copier_pdf_dans_dossier_cible", False):
             try:
                 dossier_cible = (
@@ -1433,7 +1589,9 @@ class UPSTILatexDocument:
 
                 for fichier in dossier_cible.iterdir():
                     if fichier.is_file() and fichier.name.startswith(prefix_old):
-                        nouveau_nom = prefix_new + fichier.name[len(prefix_old) :]
+                        nouveau_nom = (
+                            prefix_new + fichier.name[len(prefix_old) :].lower()
+                        )
                         nouveau_fichier = dossier_cible / nouveau_nom
 
                         if not nouveau_fichier.exists():
@@ -1607,14 +1765,6 @@ class UPSTILatexDocument:
                 etat_id_unique = "changed"
                 valeur_id_unique = nouvel_id_unique
 
-            # On va ajouter un paramètre pour donner l'état de l'id_unique
-            #
-            # TODEL
-            # Pour la première création des documents sur le site, je vais forcer
-            # l'état à "new" pour tous les documents, afin de faciliter la migration.
-            #
-            etat_id_unique = "new"
-            #
             comp_params, comp_params_messages = self.get_compilation_parameters()
             if comp_params is not None:
                 self._compilation_parameters["etat_id_unique"] = etat_id_unique
@@ -1650,51 +1800,60 @@ class UPSTILatexDocument:
 
     def _cp_create_accessible_version(
         self, code: str, compilation_options: dict
-    ) -> tuple[Optional[str], List[List[str]]]:
+    ) -> tuple[Optional[Dict], List[List[str]]]:
         """Crée un fichier tex pour une version accessible.
+
+        Paramètres
+        ----------
+        code : str
+            Code de la version accessible (ex: "dys", "dv").
+        compilation_options : dict
+            Options de compilation.
 
         Retourne
         --------
-        tuple[Optional[str], List[List[str]]]
-            (result, messages) où result contient le nom du fichier tex
-            généré, et messages est une liste de [message, flag].
+        tuple[Optional[Dict], List[List[str]]]
+            (fichier_accessible, messages) où fichier_accessible est un dict
+            {"nom": str, "suffixe_affichage": str} et messages est une liste
+            de [message, flag].
         """
+        messages: List[List[str]] = []
 
         if code not in VERSIONS_ACCESSIBLES_DISPONIBLES:
             return None, [[f"Version accessible inconnue : {code}", "warning"]]
-        else:
-            nom_fichier_accessible = (
-                self.file.stem + VERSIONS_ACCESSIBLES_DISPONIBLES[code]["suffixe"]
-            )
-            fichier_accessible = {
-                "nom": nom_fichier_accessible,
-                "suffixe_affichage": VERSIONS_ACCESSIBLES_DISPONIBLES[code][
-                    "affichage"
-                ],
-            }
 
-            # Créer physiquement le fichier .tex pour la version accessible
-            nouveau_fichier = self.file.parent / f"{nom_fichier_accessible}.tex"
+        nom_fichier_accessible = (
+            self.file.stem + VERSIONS_ACCESSIBLES_DISPONIBLES[code]["suffixe"]
+        )
+        fichier_accessible = {
+            "nom": nom_fichier_accessible,
+            "suffixe_affichage": VERSIONS_ACCESSIBLES_DISPONIBLES[code]["affichage"],
+            "code": code,
+            "suffixe": VERSIONS_ACCESSIBLES_DISPONIBLES[code]["suffixe"],
+        }
 
-            #
-            # TODO : modifier le fichier en dur ! En passant par le handler ?
-            # Ou par accessibilite.py ?
-            #
+        # Générer le contenu modifié via le handler
+        modified_content, handler_messages = (
+            self._get_latex_handler().set_version_accessible(code)
+        )
+        messages.extend(handler_messages)
 
-            if not compilation_options["dry_run"]:
-                try:
-                    shutil.copy(self.file.path, nouveau_fichier)
-                except Exception as e:
-                    return None, [
-                        [
-                            f"Erreur lors de la création de {nom_fichier_accessible}"
-                            ".tex : "
-                            f"{e}",
-                            "warning",
-                        ]
+        # Créer physiquement le fichier .tex pour la version accessible
+        nouveau_fichier = self.file.parent / f"{nom_fichier_accessible}.tex"
+
+        if not compilation_options["dry_run"]:
+            try:
+                nouveau_fichier.write_text(modified_content, encoding="utf-8")
+            except Exception as e:
+                return None, [
+                    [
+                        f"Erreur lors de la création de {nom_fichier_accessible}.tex : "
+                        f"{e}",
+                        "warning",
                     ]
+                ]
 
-            return fichier_accessible, []
+        return fichier_accessible, messages
 
     # --- Compilation LaTeX ---
 
@@ -1750,61 +1909,89 @@ class UPSTILatexDocument:
         )
 
         # Il faut d'abord créer les sources tex des fichiers accessibles
-        for version in versions_accessibles_a_compiler:
-            # Créer le fichier
-            fichier_accessible, messages_fichiers_accessibles = (
+        fichiers_accessibles: List[Dict] = []
+        for version_code in versions_accessibles_a_compiler:
+            fichier_accessible, messages_fichier_accessible = (
                 self._cp_create_accessible_version(
-                    version, compilation_options=compilation_options
+                    version_code, compilation_options=compilation_options
                 )
             )
-            if fichier_accessible is None:
-                messages.extend(messages_fichiers_accessibles)
-            else:
-                liste_fichiers_a_compiler.append(fichier_accessible)
+            messages.extend(messages_fichier_accessible)
+            if fichier_accessible is not None:
+                fichiers_accessibles.append(fichier_accessible)
 
         # Création de la liste des tâches de compilation
         if "eleve" in versions_a_compiler:
-            for fichier_a_compiler in liste_fichiers_a_compiler:
+            # === Compilation du fichier principal ===
+            fichier_principal = liste_fichiers_a_compiler[
+                0
+            ]  # {"nom": self.file.stem, "suffixe_affichage": ""}
 
-                # Affichage
-                suffixe_affichage = fichier_a_compiler.get("suffixe_affichage", "")
-                if suffixe_affichage != "":
-                    suffixe_affichage = f" [{suffixe_affichage}]"
+            if est_un_document_a_trous:
+                # Version à publier (fichier principal uniquement)
+                compilation_job_list.append(
+                    {
+                        "affichage_nom_version": "à publier",
+                        "fichier_tex": fichier_principal["nom"],
+                        "job_name": fichier_principal["nom"],
+                        "option": "Pub",
+                    }
+                )
+                # Version élève (doc à trous) pour le fichier principal
+                compilation_job_list.append(
+                    {
+                        "affichage_nom_version": "élève (doc à trous)",
+                        "fichier_tex": fichier_principal["nom"],
+                        "job_name": (
+                            f"{fichier_principal['nom']}{cfg.os.suffixe_nom_fichier_a_trous}"
+                        ),
+                        "option": "E",
+                    }
+                )
+                # Version élève (doc à trous) pour chaque fichier accessible
+                for fichier_accessible in fichiers_accessibles:
+                    suffixe_affichage = fichier_accessible.get("suffixe_affichage", "")
+                    if suffixe_affichage != "":
+                        suffixe_affichage = f" [{suffixe_affichage}]"
 
-                if est_un_document_a_trous:
-                    # Version à publier
-                    compilation_job_list.append(
-                        {
-                            "affichage_nom_version": f"à publier{suffixe_affichage}",
-                            "fichier_tex": fichier_a_compiler["nom"],
-                            "job_name": fichier_a_compiler["nom"],
-                            "option": "Pub",
-                        }
-                    )
-                    # Version élève (doc à trous)
                     compilation_job_list.append(
                         {
                             "affichage_nom_version": (
                                 f"élève (doc à trous){suffixe_affichage}"
                             ),
-                            "fichier_tex": fichier_a_compiler["nom"],
+                            "fichier_tex": fichier_accessible["nom"],
                             "job_name": (
-                                f"{fichier_a_compiler['nom']}{cfg.os.suffixe_nom_fichier_a_trous}"
+                                f"{self.file.stem}{cfg.os.suffixe_nom_fichier_a_trous}{fichier_accessible['suffixe']}"
                             ),
                             "option": "E",
                         }
                     )
-                else:
-                    # Version élève
+            else:
+                # Version élève pour le fichier principal
+                compilation_job_list.append(
+                    {
+                        "affichage_nom_version": "élève",
+                        "fichier_tex": fichier_principal["nom"],
+                        "job_name": fichier_principal["nom"],
+                        "option": "E",
+                    }
+                )
+                # Version élève pour chaque fichier accessible
+                for fichier_accessible in fichiers_accessibles:
+                    suffixe_affichage = fichier_accessible.get("suffixe_affichage", "")
+                    if suffixe_affichage != "":
+                        suffixe_affichage = f" [{suffixe_affichage}]"
+
                     compilation_job_list.append(
                         {
                             "affichage_nom_version": f"élève{suffixe_affichage}",
-                            "fichier_tex": fichier_a_compiler["nom"],
-                            "job_name": fichier_a_compiler["nom"],
+                            "fichier_tex": fichier_accessible["nom"],
+                            "job_name": f"{self.file.stem}{fichier_accessible['suffixe']}",
                             "option": "E",
                         }
                     )
 
+        # Version prof : uniquement pour le fichier principal
         if "prof" in versions_a_compiler:
             compilation_job_list.append(
                 {
@@ -2414,7 +2601,8 @@ class UPSTILatexDocument:
         instance._compilation_parameters = None
         instance._version = version
         instance._file = None
-        instance._handler = None
+        instance._pyupstilatex_handler = None
+        instance._latex_handler = None
         instance._liste_fichiers = {"compiled": [], "autres": []}
         return instance
 
@@ -2470,41 +2658,66 @@ class UPSTILatexDocument:
                 ]
             ]
 
-    def _detect_version(self) -> tuple[Optional[str], List[List[str]]]:
+    def _detect_version(
+        self,
+    ) -> tuple[Optional[Dict[str, Optional[int | str]]], List[List[str]]]:
         """Détecte la version du document en analysant le contenu (méthode interne).
+
+        Analyse le contenu du fichier pour déterminer :
+        1. La version de pyupstilatex utilisée (1, 2 ou None)
+        2. Le package LaTeX utilisé (upsti-latex, UPSTI_Document, EPB_Cours ou None)
 
         Retourne
         --------
-        tuple[Optional[str], List[List[str]]]
-            (version_string, messages) où version_string peut être :
-            - "upsti-latex" (front-matter YAML)
-            - "UPSTI_Document" (package LaTeX)
-            - "EPB_Cours" (ancien format)
-            - None (version non reconnue)
+        tuple[Optional[Dict[str, Optional[int | str]]], List[List[str]]]
+            (version_dict, messages) où version_dict contient :
+            - "pyupstilatex" : int (1, 2) ou None
+                * 2 : présence du marqueur YAML dans les commentaires
+                * 1 : utilisation du package UPSTI_Document sans marqueur YAML
+                * None : aucun format reconnu
+            - "latex" : str ou None
+                * "upsti-latex" : package upsti-latex détecté
+                * "UPSTI_Document" : package UPSTI_Document détecté
+                * "EPB_Cours" : ancien package EPB_Cours détecté
+                * None : aucun package reconnu
         """
+        version: Dict[str, Optional[int | str]] = {}
+
         try:
             content = self.content
+            packages = parse_package_imports(content)
 
+            # === Détection de la version de pyUPSTIlatex ===
+
+            # v2 : présence du marqueur de métadonnées YAML dans les commentaires
             for line in content.splitlines():
                 stripped = line.strip()
                 if not stripped:
                     continue
-
-                # upsti-latex (ligne commençant par % mais pas %%)
                 if stripped.startswith("%") and not stripped.startswith("%%"):
                     if "%### BEGIN metadonnees_yaml ###" in stripped:
-                        return "upsti-latex", []
+                        version["pyupstilatex"] = 2
+                        break
 
-            packages = parse_package_imports(content)
-            if "UPSTI_Document" in packages:
-                return "UPSTI_Document", []
-            if "EPB_Cours" in packages:
-                return "EPB_Cours", []
+            # v1 / None : si pas de marqueur YAML
+            if "pyupstilatex" not in version:
+                version["pyupstilatex"] = 1 if "UPSTI_Document" in packages else None
+
+            # === Détection du package LaTeX utilisé ===
+
+            if "upsti-latex" in packages:
+                version["latex"] = "upsti-latex"
+            elif "UPSTI_Document" in packages:
+                version["latex"] = "UPSTI_Document"
+            elif "EPB_Cours" in packages:
+                version["latex"] = "EPB_Cours"
+            else:
+                version["latex"] = None
 
         except Exception as e:
             return None, [[f"Impossible de lire le fichier: {e}", "error"]]
 
-        return "Inconnue", []
+        return version, []
 
     def _get_default_metadata(self) -> Tuple[Dict, List[List[str]]]:
         """Retourne les métadonnées par défaut (méthode interne).

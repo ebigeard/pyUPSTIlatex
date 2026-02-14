@@ -1,11 +1,19 @@
+
+%---------------------------------------------------------------------------------------
+% Métadonnées UPSTI_Document
+%---------------------------------------------------------------------------------------
 << parametres_UPSTI_Document >>
 \newcommand{\UPSTImessage}{Poly de << type_document_poly >>}
+%---------------------------------------------------------------------------------------
 
+% Compilation des variables
 \UPSTIcompileVars
-%-------------------------------------------------------------------
+
+% Début du document
 \begin{document}
 
 % En-tête
+\UPSTIbuildPage
 \UPSTIlogoPageDeGarde{<< logo >>}
 
 % Compétences

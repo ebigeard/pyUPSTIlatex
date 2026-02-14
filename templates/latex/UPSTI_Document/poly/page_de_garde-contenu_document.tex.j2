@@ -1,6 +1,8 @@
 \UPSTIprofEleve{\section*{Sommaire des corrigés}}{\section*{Sommaire}}
 <% for section_fichier in fichiers %>
+<% if fichiers|length > 1 %>
 \subsection*{<< section_fichier.section >>}
+<% endif %>
 \begin{enumerate}
 <% for fichier in section_fichier.liste %>
 \item << fichier.titre >>
