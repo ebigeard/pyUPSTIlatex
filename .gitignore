@@ -15,3 +15,4 @@ TODO.txt
 custom/*
 !custom/README.md
 !custom/document.py.template
+!custom/pyUPSTIlatex.json

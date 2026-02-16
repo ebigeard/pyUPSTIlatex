@@ -624,9 +624,6 @@ def update_config(ctx):
     # On vérifie si le fichier est présent
     json_config = read_json_config()[0]
 
-    print(json_config["variante"])
-    exit(0)
-
     if json_config is None:
         messages_existence.append(
             ["Le fichier de configuration n'existe pas", "warning"]

@@ -4,20 +4,46 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyUPSTIlatex"
-version = "0.1.0"
-description = "Utilitaire pour lire, parser et éditer des fichiers UPSTI LaTeX"
+version = "2.0.0"
+description = "Utilitaire pour lire, parser et éditer des fichiers upsti-latex (compatible aussi avec UPSTI_Document)"
 readme = "README.md"
 requires-python = ">=3.9"
+license = "GPL-3.0-only"
+keywords = ["latex", "upsti", "education", "document", "parser"]
+authors = [{name = "Emmanuel Bigeard", email = "s2i@bigeard.me"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
 dependencies = [
 	"PyYAML>=6.0",
 	"regex>=2023.8.8",
 	"click>=8.0",
 	"python-dotenv>=1.0.0",
 ]
-authors = [{name = "Emmanuel Bigeard", email = "s2i@bigeard.me"}]
+
+[project.urls]
+Homepage = "https://github.com/ebigeard/pyUPSTIlatex"
+Repository = "https://github.com/ebigeard/pyUPSTIlatex"
+Issues = "https://github.com/ebigeard/pyUPSTIlatex/issues"
 
 [project.scripts]
 pyUPSTIlatex = "pyupstilatex.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyupstilatex*"]
+exclude = ["tests*", "work*", "custom*", "templates*", "integration*"]
+
+[tool.setuptools.package-data]
+pyupstilatex = ["pyUPSTIlatex.json"]
+"*" = ["*.yaml", "*.yml", "*.tex", "*.template"]
 
 [tool.black]
 line-length = 88
