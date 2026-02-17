@@ -10,83 +10,83 @@
 # Valeurs par défaut des métadonnées obligatoires des fichiers TeX
 #--------------------------------------------------------------------------------------
 [meta.default]
-id_document_prefixe = "EB"
-variante = "jean-zay"
-matiere = "S2I"
-classe = "PT"
-type_document = "cours"
-titre = "Titre par défaut"
-version = "0.1"
-auteur = "Emmanuel BIGEARD"
+id_document_prefixe = "EB"                      # Préfixe ajouté au timestamp pour générer l'id unique du document
+variante = "jean-zay"                           # Variante par défaut (doit exister dans pyUPSTIlatex.json)
+matiere = "S2I"                                 # Matière par défaut (doit exister dans pyUPSTIlatex.json)
+classe = "PT"                                   # Classe par défaut (doit exister dans pyUPSTIlatex.json)
+type_document = "cours"                         # Type de document par défaut (doit exister dans pyUPSTIlatex.json)
+titre = "Titre par défaut"                      # Titre par défaut
+version = "0.1"                                 # Version par défaut
+auteur = "Emmanuel BIGEARD"                     # Auteur par défaut (apparaît dans les métadonnées du PDF
 
 #--------------------------------------------------------------------------------------
 # Valeurs par défaut des paramètres de compilation
 #--------------------------------------------------------------------------------------
 [compilation.defaut]
-compiler = true
-ignorer = false
-renommer_automatiquement = true
-versions_a_compiler = ["prof", "eleve"]
-versions_accessibles_a_compiler = ["dys"]
-est_un_document_a_trous = false
-copier_pdf_dans_dossier_cible = true
-upload = true
-upload_diaporama = false
-query_webhook_apres_upload = false
-dossier_ftp = "/"
+ignorer = false                                 # Si le document doitêtre ignoré lors les opérations par lot
+compiler = true                                 # Si le document doit être compilé lors des opérations par lot
+renommer_automatiquement = true                 # Si le fichier tex doit être renommé automatiquement selon le pattern défini dans os.format.nom_fichier
+versions_a_compiler = ["prof", "eleve"]         # Versions à compiler (prof et/ou eleve)
+versions_accessibles_a_compiler = ["dys"]       # Versions accessibles à compiler (dys, dv), selon les définitions dans accessibilite.py
+est_un_document_a_trous = false                 # Si le document est un document à trous (2 fichiers élève à compiler : une à compléter, et une complétée)    
+copier_pdf_dans_dossier_cible = true            # Si les PDF générés doivent être copiés dans le dossier cible depuis le dossier de compilation
+upload = true                                   # Si on doit uploader les fichiers sur le FTP ou dans un dossier local après compilation
+upload_diaporama = false                        # Si on doit aussi uploader un diaporama
+query_webhook_apres_upload = false              # Si on doit faire une requête au webhook après l'upload pour informer le site de la disponibilité du document  
+dossier_ftp = "/"                               # Dossier sur le FTP où uploader les fichiers (ex: "/S2I/PT/Cours/") - utilisé si upload = true et mode_local = false
 
 #--------------------------------------------------------------------------------------
 # Paramètres de compilation LaTeX
 #--------------------------------------------------------------------------------------
 [compilation.latex]
-nombre_compilations = 2
-affichage_detaille_dans_console = false
-copier_fichier_version = true
+nombre_compilations = 2                         # Nombre de compilations LaTeX à effectuer (pour résoudre les références croisées)
+affichage_detaille_dans_console = false         # Afficher les détails de la compilation dans la console (commandes exécutées, erreurs, etc.)
+copier_fichier_version = true                   # Si on créer et copier le fichier indiquant la version dans le dossier cible
 
 #--------------------------------------------------------------------------------------
 # Fichiers et extensions
 #--------------------------------------------------------------------------------------
 [os.format]
-nom_fichier = "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]"
-nom_fichier_version = "@_v[numero_version].ver"
-nom_fichier_parametres_compilation = "@parametres.pyUPSTIlatex.yaml"
-nom_fichier_qrcode = "qrcode"
-nom_fichier_yaml_poly = "poly.yaml"
-extension_fichier_infos_upload = ".infos.json"
-extensions_diaporama = [".pptx", ".ppt", ".key", ".odp"]
+nom_fichier = "[thematique.code|upper]-[classe.niveau|upper]-[type_document.initiales|upper]-[titre_ou_titre_activite|slug]"    # Pattern pour les noms de fichiers tex
+nom_fichier_version = "@_v[numero_version].ver"                         # Pattern pour les noms de fichiers indiquant la version (ex: @_v0.1.ver)
+nom_fichier_parametres_compilation = "@parametres.pyUPSTIlatex.yaml"    # Nom du fichier de paramètres de compilation à placer à côté du fichier tex
+nom_fichier_qrcode = "qrcode"                                           # Nom du fichier de QR code généré (sans extension)
+nom_fichier_yaml_poly = "poly.yaml"                                     # Nom du fichier YAML de configuration des polys généré par `pyupstilatex poly chemin/dossier`
+extension_fichier_infos_upload = ".infos.json"                          # Extension du fichier JSON généré après l'upload contenant les infos du document (id unique, url, etc.)
+extensions_diaporama = [".pptx", ".ppt", ".key", ".odp"]                # Extensions de fichiers acceptées pour les diaporamas
 
 #--------------------------------------------------------------------------------------
 # Suffixes pour les noms de fichiers
 #--------------------------------------------------------------------------------------
 [os.suffixe]
-nom_fichier_prof = "-prof"
-nom_fichier_a_trous = "-eleve"
-nom_diaporama = "-diaporama"
-nom_sources = "-sources"
-nom_poly = "-poly"
+nom_fichier_prof = "-prof"                      # Suffixe ajouté au nom de fichier pour la version professeur
+nom_fichier_a_trous = "-eleve"                  # Suffixe ajouté au nom de fichier pour la version élève (cas des documents "à trous")
+nom_diaporama = "-diaporama"                    # Suffixe ajouté au nom de fichier pour le diaporama associé
+nom_sources = "-sources"                        # Suffixe ajouté au nom du zip qui contient les sources LaTeX
+nom_poly = "-poly"                              # Suffixe ajouté au nom de fichier pour les poly
 
 #--------------------------------------------------------------------------------------
 # Dossiers et arborescence
 #--------------------------------------------------------------------------------------
 [os.dossier]
-cours = "Cours"
-td = "TD"
-cible_par_rapport_au_fichier_tex = ".."
-latex = "LaTeX"
-latex_build = "build"
-latex_sources = "src"
-latex_sources_images = "images"
-tmp_pour_zip = "temp_zip"
-poly = "_poly"
-poly_backup_yaml = "_bak"
-poly_page_de_garde = "page_de_garde"
+cours = "Cours"                                 # Nom du dossier qui contient le/les cours
+td = "TD"                                       # Nom du dossier qui contient le/les TD      
+cible_par_rapport_au_fichier_tex = ".."         # Chemin relatif du dossier cible (qui contiendra les PDF) par rapport au dossier qui contient le fichier tex
+latex = "LaTeX"                                 # Nom du dossier qui contient le fichier tex (et les sources LaTeX)
+latex_build = "build"                           # Nom du dossier de compilation LaTeX généré à côté du fichier tex   
+latex_sources = "src"                           # Nom du dossier qui contient les sources LaTeX (fichier inclu dans le zip des sources)
+latex_sources_images = "images"                 # Nom du sous-dossier de latex_sources qui contient les images
+tmp_pour_zip = "temp_zip"                       # Nom du dossier temporaire utilisé pour créer le zip des sources
+poly = "_poly"                                  # Nom du dossier créé lors de la création d'un poly
+poly_backup_yaml = "_bak"                       # Nom du dossier de backup (sous-dossier de poly) des fichiers YAML lors de la création d'un poly
+poly_page_de_garde = "page_de_garde"            # Nom du dossier (sous-dossier de poly) contenant la page de garde générée pour un poly
 
 #--------------------------------------------------------------------------------------
 # Dossiers à traiter et fichiers à exclure
 #--------------------------------------------------------------------------------------
 [traitement_par_lot]
-dossiers_a_traiter = ['C:/']
-fichiers_a_exclure = [
+dossiers_a_traiter = ['C:/']                    # Liste des dossiers à scanner lorsqu'on utilise un traitement par lot sans spécifier de dossier
+fichiers_a_exclure = [                          # Masques de fichiers à ignorer lors du traitement par lot (ex: pour éviter de traiter les fichiers temporaires, les sauvegardes, etc.)
     "*_ini.*",
     "*_tmp.*",
     "* - Copie*",
@@ -100,34 +100,34 @@ fichiers_a_exclure = [
 # Configuration des polys
 #--------------------------------------------------------------------------------------
 [poly]
-nombre_de_pages_par_feuille = 2
-recto_verso = true
+nombre_de_pages_par_feuille = 2                 # Nombre de pages du document original à faire tenir sur une feuille du poly (ex: 2 pour faire tenir 2 pages sur une feuille A4)
+recto_verso = true                              # Si le poly doit être généré en recto verso (true) ou en recto simple (false). Cela conditionnera l'ajout de pages blanches.
 
 #--------------------------------------------------------------------------------------
 # Configuration FTP (secrets dans custom/.env)
 #--------------------------------------------------------------------------------------
 [ftp]
-timeout = 30
-mode_local = false
-mode_local_dossier = "C:/tmp"
+timeout = 30                                    # Timeout en secondes pour les connexions FTP 
+mode_local = false                              # Si true, au lieu d'uploader sur un serveur FTP, les fichiers seront copiés dans un dossier local (utile pour les tests ou si vous n'avez pas de serveur FTP)
+mode_local_dossier = "C:/tmp"                   # Si mode_local = true, les fichiers seront copiés dans ce dossier local au lieu d'être uploadés sur le FTP
 
 #--------------------------------------------------------------------------------------
 # Configuration du site (secrets dans custom/.env)
 #--------------------------------------------------------------------------------------
 [site]
-endpoint_get_config = "https://s2i.bigeard.me/api/endpoint/pyUPSTIlatex.json"
-webhook_upload_url = "https://votre-site.com/webhook/upload"
-document_url_pattern = "https://votre-site.com/document/{id_unique}"
+endpoint_get_config = "https://s2i.bigeard.me/api/endpoint/pyUPSTIlatex.json"       # URL de l'endpoint pour récupérer la configuration pyUPSTIlatex.json (variantes, matières, classes, types de documents, etc.)
+webhook_upload_url = "https://votre-site.com/webhook/upload"                        # URL du webhook à appeler après l'upload d'un document pour informer le site de la disponibilité du document (doit accepter une requête POST avec les infos du document en JSON)   
+document_url_pattern = "https://votre-site.com/document/{id_unique}"                # Pattern pour générer l'URL d'accès à un document sur le site à partir de son id unique (ex: "https://votre-site.com/document/{id_unique}")
 
 #--------------------------------------------------------------------------------------
 # Configuration pour compatibilité avec anciennes versions
 #--------------------------------------------------------------------------------------
 [legacy]
-nom_fichier_parametres_compilation = "@parametres.upsti.ini"
-nom_fichier_xml_poly = "poly.xml"
-suffixe_nom_fichier_prof = "-Prof"
-suffixe_nom_fichier_a_trous = "-Eleve"
-suffixe_nom_diaporama = "-Diaporama"
-suffixe_nom_poly = "-polyTD"
-dossier_latex_sources = "Src"
-dossier_latex_sources_images = "Images"
+nom_fichier_parametres_compilation = "@parametres.upsti.ini"        # Nom du fichier de paramètres de compilation dans les anciennes versions (pour assurer la compatibilité avec les fichiers déjà créés avec les anciennes versions de pyUPSTIlatex)
+nom_fichier_xml_poly = "poly.xml"                                   # Nom du fichier utilisé dans les anciennes versions pour la configuration des polys (remplacé par un fichier YAML dans les versions plus récentes)
+suffixe_nom_fichier_prof = "-Prof"                                  # Ancien suffixe ajouté au nom de fichier pour la version professeur (remplacé par "-prof" dans les versions plus récentes)
+suffixe_nom_fichier_a_trous = "-Eleve"                              # Ancien suffixe ajouté au nom de fichier pour la version élève (cas des documents "à trous") (remplacé par "-eleve" dans les versions plus récentes)
+suffixe_nom_diaporama = "-Diaporama"                                # Ancien suffixe ajouté au nom de fichier pour le diaporama associé (remplacé par "-diaporama" dans les versions plus récentes)
+suffixe_nom_poly = "-polyTD"                                        # Ancien suffixe ajouté au nom de fichier pour les poly (remplacé par "-poly" dans les versions plus récentes)
+dossier_latex_sources = "Src"                                       # Ancien nom du dossier qui contient les sources LaTeX (remplacé par "src" dans les versions plus récentes)
+dossier_latex_sources_images = "Images"                             # Ancien nom du sous-dossier de latex_sources qui contient les images (remplacé par "images" dans les versions plus récentes)

@@ -1,5 +1,6 @@
 # pyUPSTIlatex
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
   <img src="integration/icones_et_logos/pyUPSTIlatex.png" alt="Logo pyUPSTIlatex" width="200"/>
   
@@ -8,6 +9,7 @@
   ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
   ![Status](https://img.shields.io/badge/status-beta-orange)
 </div>
+<!-- markdownlint-enable MD033 -->
 
 ## Description
 
@@ -67,6 +69,8 @@ cp custom/.env.template custom/.env
 cp custom/config.toml.template  custom/config.toml
 ```
 
+<!-- markdownlint-disable MD029 -->
+
 2. **Configuration TOML** (`custom/config.toml`) :
 
 ```toml
@@ -90,6 +94,8 @@ FTP_HOST=ftp.example.com
 FTP_USER=username
 FTP_PASSWORD=password
 ```
+
+<!-- markdownlint-enable MD029 -->
 
 ### Utilisation basique
 
@@ -143,7 +149,7 @@ La **documentation complète** est disponible sur le [**Wiki GitHub**](https://g
 
 1. [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
 2. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation)
-3. [Préparation de l'environnemnt pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
+3. [Préparation de l'environnement pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
 4. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/Commandes-CLI)
 5. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Tâches-usuelles)
 
@@ -211,11 +217,7 @@ Ce projet est sous licence **GNU General Public License v3.0**. Voir le fichier 
 
 ## Auteur
 
-### Emmanuel Bigeard
-
-- Email : [s2i@bigeard.me](s2i@bigeard.me)
-- Site : [s2i.bigeard.me](https://s2i.bigeard.me)
-- GitHub : [@ebigeard](https://github.com/ebigeard)
+Emmanuel Bigeard - mail : [s2i@bigeard.me](s2i@bigeard.me) - site internet : [https://s2i.bigeard.me](https://s2i.bigeard.me)
 
 ## Remerciements
 
