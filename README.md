@@ -19,6 +19,8 @@ Il peut néanmoins être adapté à n'importe quel niveau ou discipline, moyenna
 
 Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIlatex simplifie la gestion de documents pédagogiques (cours, TD, TP, colles) en automatisant la compilation, le versionnage, l'upload FTP et la génération de polys.
 
+En savoir plus en consultant le wiki : [Concepts et structure du projet](https://github.com/ebigeard/pyUPSTIlatex/wiki/Concepts-et-structure-du-projet)
+
 ## Fonctionnalités principales
 
 - **Compilation intelligente** avec gestion des versions élève/prof/documents à compléter, etc.
@@ -149,11 +151,12 @@ Consultez le wiki [Configuration et personnalisation](https://github.com/ebigear
 
 La **documentation complète** est disponible sur le [**Wiki GitHub**](https://github.com/ebigeard/pyUPSTIlatex/wiki) :
 
-1. [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
-2. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation)
-3. [Préparation de l'environnement pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
-4. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/Commandes-CLI)
-5. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Tâches-usuelles)
+1. [Concepts et structure du projet](https://github.com/ebigeard/pyUPSTIlatex/wiki/Concepts-et-structure-du-projet)
+2. [Guide d'installation détaillé](https://github.com/ebigeard/pyUPSTIlatex/wiki/Guide-d'installation-détaillé)
+3. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation)
+4. [Préparation de l'environnement pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
+5. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/Commandes-CLI)
+6. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Tâches-usuelles)
 
 ## Exemples d'utilisation
 
@@ -237,39 +240,3 @@ Voir [CHANGELOG.md](CHANGELOG.md) pour l'historique des versions.
 - **Bugs report** : [GitHub Issues](https://github.com/ebigeard/pyUPSTIlatex/issues)
 - **Discussions** : [GitHub Discussions](https://github.com/ebigeard/pyUPSTIlatex/discussions)
 - **Documentation** : [Wiki](https://github.com/ebigeard/pyUPSTIlatex/wiki)
-
-## Structure du projet
-
-```text
-pyUPSTIlatex/
-├── pyupstilatex/               # Code source principal
-│   ├── config/                 # Configuration par défaut
-│   │   ├── pyUPSTIlatex.json   # Possiblité de mettre à jour par le CLI
-│   │   └── config.default.toml # Configuration métier par défaut
-│   ├── accessibilite.py        # Configuration des fichiers accessibles
-│   ├── cli.py                  # Interface en ligne de commande
-│   ├── config.py               # Gestion de la configuration
-│   ├── document.py             # Classe principale UPSTILatexDocument
-│   ├── document_registery.py   # Pour permettre la surcharge de UPSTILatexDocument
-│   ├── exceptions.py           # Gestion des erreurs (pas ouf..)
-│   ├── file_helpers.py         # Utilitaires de manipulation de fichiers
-│   ├── file_latex_helpers.py   # Parsing LaTeX
-│   ├── file_system.py          # Gestion I/O sur le disque
-│   ├── handlers.py             # Handlers de version (v1, v2)
-│   └── logger.py               # Système de messages dans la console et logger
-├── templates/                  # Templates LaTeX par défaut
-│   ├── latex/                  # Templates de documents
-│   └── yaml/                   # Templates YAML
-├── integration/                # Fichiers d'intégration OS
-│   ├── commandes_windows/      # Scripts .cmd
-│   ├── icones_et_logos/        # Icônes et logos
-│   └── yaml/                   # Configs YAML
-├── custom/                     # Configuration personnalisée (non versionné)
-│   ├── .env                    # Secrets (FTP, etc.)
-│   ├── .env.template           # Secrets (Template à dupliquer)
-│   ├── config.toml             # Surcharge de configuration
-│   ├── config.toml.template    # Surcharge de configuration (Template à dupliquer)
-│   ├── document.py.template    # Template de classe personnalisée
-│   └── templates/              # Overrides des templates LaTeX et YAML
-└── exemples/                   # Exemples
-```
