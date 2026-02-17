@@ -34,6 +34,22 @@ Formatter = Callable[[str, Optional[str]], FormattedMessage]
 def _annoted_text(
     text: str, flag: Optional[str], version: Optional[str] = "full"
 ) -> str:
+    """Annote un texte avec des symboles et couleurs selon le flag.
+
+    Paramètres
+    ----------
+    text : str
+        Le texte à annoter.
+    flag : str, optional
+        Type d'annotation : 'success', 'warning', 'error', 'fatal_error', 'info'.
+    version : str, optional
+        Version de l'annotation : 'full' (défaut) ou 'compact'.
+
+    Retourne
+    --------
+    str
+        Le texte annoté avec symboles et couleurs ANSI.
+    """
     if version == "compact":
         text_info = "i"
         text_success = "✓"
@@ -57,6 +73,18 @@ def _annoted_text(
 
 
 def _level_from_flag(flag: Optional[str]) -> int:
+    """Convertit un flag en niveau de logging.
+
+    Paramètres
+    ----------
+    flag : str, optional
+        Type de flag : 'warning', 'error', 'fatal_error', ou autre.
+
+    Retourne
+    --------
+    int
+        Niveau de logging correspondant (logging.WARNING, logging.ERROR, ou logging.INFO).
+    """
     if flag == "warning":
         return logging.WARNING
     elif flag in ("error", "fatal_error"):
@@ -71,12 +99,46 @@ def fmt_generic(
     suffix: str = "",
     version: str = "full",
 ) -> FormattedMessage:
+    """Formate un message générique avec préfixe et suffixe.
+
+    Paramètres
+    ----------
+    t : str
+        Le texte du message.
+    flag : str, optional
+        Type de flag pour l'annotation.
+    prefix : str, optional
+        Préfixe à ajouter avant le texte. Défaut : "".
+    suffix : str, optional
+        Suffixe à ajouter après le texte. Défaut : "".
+    version : str, optional
+        Version de l'annotation ('full' ou 'compact'). Défaut : "full".
+
+    Retourne
+    --------
+    FormattedMessage
+        Message formaté avec son niveau de logging.
+    """
     return FormattedMessage(
         f"{prefix}{_annoted_text(t, flag, version)}{suffix}", _level_from_flag(flag)
     )
 
 
 def fmt_separator(key: str, flag: Optional[str] = None) -> FormattedMessage:
+    """Formate un séparateur visuel.
+
+    Paramètres
+    ----------
+    key : str
+        Clé du séparateur dans SEPARATORS ('separateur1', 'separateur2', 'separateur3').
+    flag : str, optional
+        Type de flag pour le niveau de logging.
+
+    Retourne
+    --------
+    FormattedMessage
+        Séparateur formaté en gris avec son niveau de logging.
+    """
     # Affiche les séparateurs en gris pour plus de discrétion
     sep = SEPARATORS[key]
     return FormattedMessage(
@@ -123,6 +185,24 @@ DEFAULT_FORMATTERS: Dict[str, Formatter] = {
 # Classe principale
 # -----------------------------
 class MessageHandler:
+    """Gestionnaire de messages avec logging configurable.
+
+    Paramètres
+    ----------
+    log_file : str, optional
+        Chemin du fichier de log. Si None, pas de logging fichier.
+    verbose : bool, optional
+        Active le mode verbeux. Défaut : True.
+    logger_name : str, optional
+        Nom du logger. Défaut : "pyUPSTIlatex".
+    console_level : int, optional
+        Niveau de logging console. Défaut : logging.INFO.
+    file_level : int, optional
+        Niveau de logging fichier. Défaut : logging.DEBUG.
+    formatters : Dict[str, Formatter], optional
+        Dictionnaire de formatters personnalisés. Si None, utilise DEFAULT_FORMATTERS.
+    """
+
     def __init__(
         self,
         log_file: Optional[str] = None,
@@ -138,6 +218,17 @@ class MessageHandler:
         self._configure_logger(log_file, console_level, file_level)
 
     def _configure_logger(self, log_file, console_level, file_level):
+        """Configure le logger avec handlers console et fichier.
+
+        Paramètres
+        ----------
+        log_file : str, optional
+            Chemin du fichier de log.
+        console_level : int
+            Niveau de logging pour la console.
+        file_level : int
+            Niveau de logging pour le fichier.
+        """
         if not self._logger.handlers:
             self._logger.setLevel(logging.DEBUG)
             console = logging.StreamHandler()
@@ -157,6 +248,24 @@ class MessageHandler:
     def format_message(
         self, typ: str, texte: str, flag: str = None, last: bool = False
     ) -> FormattedMessage:
+        """Formate un message selon son type.
+
+        Paramètres
+        ----------
+        typ : str
+            Type de message (ex: 'titre1', 'info', 'resultat_item', etc.).
+        texte : str
+            Contenu du message.
+        flag : str, optional
+            Flag d'annotation ('success', 'warning', 'error', etc.).
+        last : bool, optional
+            Indique si c'est le dernier élément d'une liste. Défaut : False.
+
+        Retourne
+        --------
+        FormattedMessage
+            Message formaté prêt à être logé.
+        """
         fmt = self._formatters.get(typ)
         if typ == "resultat_item":
             char = "└" if last else "├"
@@ -173,6 +282,18 @@ class MessageHandler:
         )
 
     def emit(self, message: dict):
+        """Émet un message via le logger.
+
+        Paramètres
+        ----------
+        message : dict
+            Dictionnaire contenant les clés :
+            - 'type' : type de message
+            - 'texte' : contenu du message
+            - 'flag' : flag d'annotation (optional)
+            - 'verbose' : si False, ignore le message (optional)
+            - 'last' : si True, dernier d'une liste (optional)
+        """
         if not message or (message.get("verbose") is False):
             return
         typ = message.get("type", "info")
@@ -191,6 +312,19 @@ class MessageHandler:
     def msg(
         self, typ: str, texte: str, verbose: Optional[bool] = None, flag: str = None
     ):
+        """Helper pour émettre rapidement un message.
+
+        Paramètres
+        ----------
+        typ : str
+            Type de message.
+        texte : str
+            Contenu du message.
+        verbose : bool, optional
+            Contrôle si le message doit être affiché.
+        flag : str, optional
+            Flag d'annotation.
+        """
         m = {"type": typ, "texte": texte}
         if verbose is not None:
             m["verbose"] = verbose

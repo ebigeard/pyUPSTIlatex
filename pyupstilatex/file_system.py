@@ -9,11 +9,21 @@ from .storage import FileSystemStorage, StorageProtocol
 
 @dataclass
 class DocumentFile:
-    """
-    Gère les aspects système de fichiers d'un document :
-    - Existence, lisibilité, écriture
-    - Détection d'encodage et de fichiers binaires
-    - Lecture avec fallback d'encodage
+    """Gestion des aspects système de fichiers d'un document.
+
+    Gère l'existence, la lisibilité, l'écriture, la détection d'encodage
+    et de fichiers binaires, avec lecture et fallback d'encodage.
+
+    Paramètres
+    ----------
+    source : str
+        Chemin du fichier source.
+    storage : StorageProtocol, optional
+        Backend de stockage à utiliser. Défaut : FileSystemStorage().
+    strict : bool, optional
+        Si True, lève des exceptions en cas de problème. Défaut : False.
+    require_writable : bool, optional
+        Si True (et strict=True), exige que le fichier soit modifiable. Défaut : False.
     """
 
     source: str
@@ -32,7 +42,18 @@ class DocumentFile:
     _raw: Optional[str] = field(default=None, init=False)
 
     def __post_init__(self):
-        """Initialise les états du fichier selon le type de stockage."""
+        """Initialise les états du fichier selon le type de stockage.
+
+        Vérifie l'existence, la lisibilité et l'écritabilité du fichier.
+        Détecte les fichiers binaires et les problèmes d'encodage.
+        En mode strict, lève des exceptions si les conditions ne sont pas remplies.
+
+        Raises
+        ------
+        DocumentParseError
+            Si le fichier est introuvable, illisible ou non ouvrable en écriture
+            en mode strict.
+        """
         try:
             # Cas 1 : stockage local — on peut faire des tests système explicites
             if isinstance(self.storage, FileSystemStorage):
@@ -157,62 +178,145 @@ class DocumentFile:
     # Propriétés d'accès simples
     @property
     def exists(self) -> bool:
+        """Indique si le fichier existe.
+
+        Retourne
+        --------
+        bool
+            True si le fichier existe, False sinon.
+        """
         return bool(self._file_exists)
 
     @property
     def is_readable(self) -> bool:
+        """Indique si le fichier est lisible.
+
+        Retourne
+        --------
+        bool
+            True si le fichier est lisible, False sinon.
+        """
         return bool(self._file_readable)
 
     @property
     def is_writable(self) -> bool:
+        """Indique si le fichier est ouvert en écriture.
+
+        Retourne
+        --------
+        bool
+            True si le fichier est modifiable, False sinon.
+        """
         return bool(self._file_writable)
 
     @property
     def readable_reason(self) -> Optional[str]:
+        """Raison pour laquelle le fichier n'est pas lisible.
+
+        Retourne
+        --------
+        str, optional
+            Message d'erreur si le fichier n'est pas lisible, None sinon.
+        """
         return self._file_readable_reason
 
     @property
     def readable_flag(self) -> Optional[str]:
+        """Flag associé à l'état de lisibilité.
+
+        Retourne
+        --------
+        str, optional
+            'warning', 'error' ou 'fatal_error', ou None si lisible.
+        """
         return self._file_readable_flag
 
     @property
     def writable_reason(self) -> Optional[str]:
+        """Raison pour laquelle le fichier n'est pas modifiable.
+
+        Retourne
+        --------
+        str, optional
+            Message d'erreur si le fichier n'est pas modifiable, None sinon.
+        """
         return self._file_writable_reason
 
     @property
     def read_encoding(self) -> Optional[str]:
+        """Encodage détecté pour la lecture.
+
+        Retourne
+        --------
+        str, optional
+            Encodage à utiliser (ex: 'latin-1'), ou None si UTF-8.
+        """
         return self._read_encoding
 
     @property
     def path(self) -> Path:
-        """Retourne le Path du fichier source."""
+        """Retourne le Path du fichier source.
+
+        Retourne
+        --------
+        Path
+            Objet Path du fichier.
+        """
         return Path(self.source)
 
     @property
     def parent(self) -> Path:
-        """Retourne le dossier parent du fichier source."""
+        """Retourne le dossier parent du fichier source.
+
+        Retourne
+        --------
+        Path
+            Dossier parent du fichier.
+        """
         return Path(self.source).parent
 
     @property
     def stem(self) -> str:
-        """Retourne le nom du fichier sans extension."""
+        """Retourne le nom du fichier sans extension.
+
+        Retourne
+        --------
+        str
+            Nom du fichier sans extension.
+        """
         return Path(self.source).stem
 
     @property
     def suffix(self) -> str:
-        """Retourne l'extension du fichier (avec le point)."""
+        """Retourne l'extension du fichier.
+
+        Retourne
+        --------
+        str
+            Extension du fichier avec le point (ex: '.tex').
+        """
         return Path(self.source).suffix
 
     def check_file(self, mode: str = "read") -> tuple[bool, List[List[str]]]:
-        """Vérifie rapidement l'état du fichier selon le mode demandé.
+        """Vérifie l'état du fichier selon le mode demandé.
 
-        Retourne (ok, raison, flag) où:
-        - ok: True si tout est OK pour le mode demandé
-        - liste de messages d'erreurs (msg, flag).
+        Paramètres
+        ----------
+        mode : str, optional
+            Mode de vérification : 'read', 'write' ou 'exists'. Défaut : 'read'.
 
-        Modes supportés:
+        Retourne
+        --------
+        tuple[bool, List[List[str]]]
+            Tuple contenant :
+            - ok : True si tout est OK pour le mode demandé
+            - messages : Liste de messages [message, flag]
+
+        Notes
+        -----
+        Modes supportés :
         - 'read'  : existence + readable (UTF-8) ; si fallback latin-1 => warning
-        - 'write' : existence + writable (test non destructif pour FileSystemStorage)
+        - 'write' : existence + writable (test non destructif)
         - 'exists': existence seulement
         """
         mode = (mode or "read").lower()
@@ -277,7 +381,21 @@ class DocumentFile:
         )
 
     def read(self) -> str:
-        """Lit et retourne le contenu du fichier."""
+        """Lit et retourne le contenu du fichier.
+
+        Utilise l'encodage détecté (UTF-8 ou fallback latin-1).
+        Le contenu est mis en cache après la première lecture.
+
+        Retourne
+        --------
+        str
+            Contenu du fichier.
+
+        Raises
+        ------
+        DocumentParseError
+            Si la lecture échoue.
+        """
         if self._raw is None:
             try:
                 # Si on détecte un encoding fallback pour le stockage local, l'utiliser

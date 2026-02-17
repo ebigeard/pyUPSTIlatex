@@ -20,11 +20,23 @@ JSON_CUSTOM_CONFIG_PATH = (
 def read_json_config(
     path: Optional[Path | str] = None,
 ) -> tuple[Optional[dict], List[List[str]]]:
-    """Lit le fichier JSON de configuration.
+    """Lit le fichier JSON de configuration avec support de surcharge.
 
-    Retourne un tuple `(data, messages)` où `data` est le dictionnaire lu
-    (ou `None` en cas d'erreur) et `messages` est une liste de paires
-    `[message, flag]` décrivant les erreurs/avertissements rencontrés.
+    Charge le fichier JSON principal, puis applique les modifications du
+    fichier custom si présent (sections 'remove' et 'create_or_modify').
+
+    Paramètres
+    ----------
+    path : Optional[Path | str], optional
+        Chemin vers le fichier JSON à lire. Si None, utilise le chemin par
+        défaut (pyUPSTIlatex.json). Défaut : None.
+
+    Retourne
+    --------
+    tuple[Optional[dict], List[List[str]]]
+        Tuple (data, messages) où :
+        - data : dictionnaire de configuration (ou None en cas d'erreur)
+        - messages : liste de [message, flag] pour erreurs/avertissements
     """
     messages: List[List[str]] = []
 
@@ -381,7 +393,28 @@ def create_compilation_parameter_file(
 def create_yaml_for_poly(
     chemin_dossier: Path, poly_type: str, msg
 ) -> tuple[bool, List[List[str]]]:
-    """Création du fichier YAML nécessaire à la génération d'un poly de TD"""
+    """Crée un fichier YAML pour la génération d'un poly de TD.
+
+    Scanne le dossier pour trouver les fichiers LaTeX compatibles, récupère
+    leurs métadonnées, et génère un fichier poly.yaml avec toutes les
+    informations nécessaires à la compilation du poly.
+
+    Paramètres
+    ----------
+    chemin_dossier : Path
+        Chemin du dossier contenant les fichiers TD à inclure dans le poly.
+    poly_type : str
+        Type de document du poly (ex: 'td', 'tp', etc.).
+    msg : MessageHandler
+        Gestionnaire de messages pour l'affichage des informations.
+
+    Retourne
+    --------
+    tuple[bool, List[List[str]]]
+        Tuple (success, messages) où :
+        - success : True si le fichier YAML a été créé avec succès
+        - messages : liste de [message, flag] générés durant la création
+    """
 
     # === 1. Préparation de la création du fichier YAML ===
     cfg = load_config()
@@ -750,7 +783,26 @@ def create_yaml_for_poly(
 
 
 def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
-    """Création d'un poly de TD à partir d'un fichier YAML"""
+    """Crée un poly de TD à partir d'un fichier YAML.
+
+    Lit le fichier YAML de configuration, génère une page de garde, compile les
+    différentes versions (élève, prof, accessibles), et combine tous les PDFs
+    en un seul document poly.
+
+    Paramètres
+    ----------
+    chemin_fichier_yaml : Path
+        Chemin vers le fichier poly.yaml contenant la configuration.
+    msg : MessageHandler
+        Gestionnaire de messages pour l'affichage des informations de compilation.
+
+    Retourne
+    --------
+    tuple[bool, List[List[str]]]
+        Tuple (success, messages) où :
+        - success : True si tous les PDFs ont été créés avec succès
+        - messages : liste de [message, flag] générés durant la création
+    """
 
     # === 1. Lecture du fichier YAML et récupération des données ===
     msg.info("Lecture du fichier YAML et récupération des données", "info")
@@ -1284,6 +1336,29 @@ def combine_pdf(
 def prepare_for_pyupstilatex_v2(
     infos_document: dict, thematique: str, msg
 ) -> tuple[bool, List[List[str]]]:
+    """Prépare un document pour la migration vers pyUPSTIlatex v2.
+
+    Renomme les dossiers legacy (Src → src, Images → images), modifie les
+    chemins dans les fichiers .tex, et convertit le fichier @parametres.upsti.ini
+    en @parametres.pyUPSTIlatex.yaml au format v2.
+
+    Paramètres
+    ----------
+    infos_document : dict
+        Dictionnaire contenant les informations du document (dont 'path',
+        'a_compiler', 'a_ignorer').
+    thematique : str
+        Code de la thématique du document pour la migration.
+    msg : MessageHandler
+        Gestionnaire de messages pour l'affichage des informations.
+
+    Retourne
+    --------
+    tuple[bool, List[List[str]]]
+        Tuple (success, messages) où :
+        - success : True si la migration a réussi
+        - messages : liste de [message, flag] générés durant la migration
+    """
 
     cfg = load_config()
     messages: List[List[str]] = []
@@ -1520,7 +1595,6 @@ def prepare_for_pyupstilatex_v2(
     # dans le yaml
     new_comp_params["surcharge_metadonnees"] = {
         "thematique": thematique,
-        "description": "--A compléter--",
     }
 
     creation_yaml, messages_yaml = create_compilation_parameter_file(
@@ -1702,9 +1776,21 @@ def check_path_writable(path: str) -> Tuple[bool, Optional[str], Optional[str]]:
 
 
 def add_display_paths(documents: list[dict[str, str]]) -> list[dict[str, str]]:
-    """
-    Ajoute une clé 'display_path' à chaque dict, contenant le chemin relatif
-    par rapport au chemin commun de tous les documents.
+    """Ajoute des chemins d'affichage relatifs aux documents.
+
+    Calcule le chemin commun de tous les documents et ajoute une clé
+    'display_path' contenant le chemin relatif par rapport à ce chemin commun.
+
+    Paramètres
+    ----------
+    documents : list[dict[str, str]]
+        Liste de dictionnaires de documents. Chaque dict doit contenir
+        une clé 'path' avec le chemin absolu du fichier.
+
+    Retourne
+    --------
+    list[dict[str, str]]
+        Liste des documents modifiée avec la clé 'display_path' ajoutée.
     """
     if not documents:
         return documents
@@ -1723,7 +1809,22 @@ def add_display_paths(documents: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def display_version(version_pyupstilatex: int, version_latex: str) -> str:
-    """Retourne une chaîne de caractères affichable pour les versions détectées."""
+    """Formate les versions pyUPSTIlatex et LaTeX pour l'affichage.
+
+    Paramètres
+    ----------
+    version_pyupstilatex : int
+        Numéro de version pyUPSTIlatex (1, 2, etc.) ou None si inconnue.
+    version_latex : str
+        Nom du package LaTeX utilisé ("UPSTI_Document", "upsti-latex", etc.)
+        ou None si inconnu.
+
+    Retourne
+    --------
+    str
+        Chaîne formatée (ex: "v2 - UPSTI_Document") ou "Inconnue" si
+        les versions ne sont pas détectées.
+    """
     if version_pyupstilatex is None or version_latex is None:
         return "Inconnue"
 
@@ -1763,10 +1864,24 @@ def format_nom_documents_for_display(
 
 
 def _add_truncated_paths(documents: List[Dict[str, str]], max_length: int = 88) -> None:
-    """
-    Ajoute une clé 'display_path' à chaque dict, contenant le chemin tronqué à
-    max_length caractères.
-    Modifie la liste en place.
+    """Ajoute des chemins tronqués pour l'affichage dans une liste de documents.
+
+    Modifie la liste en place en ajoutant une clé 'display_path' avec un chemin
+    tronqué à max_length caractères. Utilise le format "C:\...\fichier.tex" pour
+    les chemins trop longs.
+
+    Paramètres
+    ----------
+    documents : List[Dict[str, str]]
+        Liste de dictionnaires de documents. Chaque dict doit contenir une clé
+        'path'. La liste est modifiée en place.
+    max_length : int, optional
+        Longueur maximale du chemin tronqué. Défaut : 88.
+
+    Notes
+    -----
+    Cette fonction est interne (préfixe '_') et modifie la liste en place.
+    Pour les chemins courts (≤ max_length), le chemin complet est conservé.
     """
     if not documents:
         return

@@ -8,10 +8,27 @@ from .file_helpers import read_json_config
 
 
 def parse_metadata_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
-    """
-    Extrait et parse le YAML contenu dans la zone
-    %### BEGIN metadonnees_yaml ### ... %### END metadonnees_yaml ###
-    Retourne (dict Python, liste d'erreurs).
+    """Extrait et parse le YAML des métadonnées d'un document UPSTI.
+
+    Cherche le bloc YAML dans la zone délimitée par les marqueurs
+    %### BEGIN metadonnees_yaml ### et %### END metadonnees_yaml ###.
+
+    Paramètres
+    ----------
+    text : str
+        Contenu complet du fichier LaTeX.
+
+    Retourne
+    --------
+    tuple[Dict[str, Any], List[List[str]]]
+        Tuple contenant :
+        - data : Dictionnaire Python des métadonnées parsées
+        - errors : Liste de messages d'erreur [message, flag]
+
+    Notes
+    -----
+    Les tabulations sont converties en 4 espaces avant le parsing.
+    Les commentaires YAML en fin de ligne (# ...) sont supprimés.
     """
     errors: List[List[str]] = []
 
@@ -70,9 +87,30 @@ def parse_metadata_yaml(text: str) -> Tuple[Dict[str, Any], List[List[str]]]:
 def parse_metadata_tex(
     text: str, tex_names: Optional[List[str]] = None
 ) -> Tuple[Dict[str, Any], List[List[str]]]:
-    """
-    Extrait les commandes tex de configuration du fichier UPSTI_document.
-    Retourne (dict Python, liste de messages d'erreurs (msg, flag)).
+    """Extrait les commandes TeX de configuration d'un document UPSTI.
+
+    Parse les commandes LaTeX standard du package UPSTI_Document pour
+    extraire les métadonnées du document.
+
+    Paramètres
+    ----------
+    text : str
+        Contenu complet du fichier LaTeX.
+    tex_names : List[str], optional
+        Liste de noms de commandes TeX à extraire spécifiquement.
+        Si None, extrait toutes les métadonnées configurées.
+
+    Retourne
+    --------
+    tuple[Dict[str, Any], List[List[str]]]
+        Tuple contenant :
+        - result : Dictionnaire des métadonnées extraites
+        - errors : Liste de messages [message, flag]
+
+    Notes
+    -----
+    Gère des types spéciaux comme les compétences, programmes,
+    et les valeurs relationnelles avec id_upsti_document.
     """
     cfg, cfg_errors = read_json_config()
     if cfg is None:
@@ -281,14 +319,30 @@ def parse_metadata_tex(
 def read_tex_zone(
     text: str, zone_name: str, remove_comment_char: bool = False
 ) -> Optional[str]:
-    """
-    Lit le contenu brut d'une zone LaTeX délimitée par
-    %### BEGIN <zone_name> ### et %### END <zone_name> ###
+    """Lit le contenu d'une zone LaTeX délimitée.
 
-    - Les lignes BEGIN/END doivent correspondre exactement,
-      avec éventuellement des espaces en fin de ligne.
-    - Si remove_comment_char=True, supprime un seul '%' en début de ligne
-      (et l'espace qui suit éventuellement).
+    Cherche une zone délimitée par %### BEGIN <zone_name> ###
+    et %### END <zone_name> ###.
+
+    Paramètres
+    ----------
+    text : str
+        Contenu complet du fichier LaTeX.
+    zone_name : str
+        Nom de la zone à extraire.
+    remove_comment_char : bool, optional
+        Si True, supprime le caractère '%' en début de chaque ligne
+        (et l'espace suivant). Défaut : False.
+
+    Retourne
+    --------
+    str, optional
+        Contenu de la zone si trouvée, None sinon.
+
+    Notes
+    -----
+    Les lignes BEGIN/END doivent correspondre exactement,
+    avec éventuellement des espaces en fin de ligne.
     """
     pattern = (
         rf"^%### BEGIN {re.escape(zone_name)} ### *\r?\n"  # ligne BEGIN stricte
@@ -369,14 +423,32 @@ def write_tex_zone(text: str, zone_name: str, zone_content: str) -> str:
 
 
 def find_tex_entity(text: str, name: str, kind: str = "command_declaration"):
-    """
-    Recherche des entités LaTeX dans le texte.
+    """Recherche des entités LaTeX dans le texte.
 
-            kind peut être :
-                - "command_declaration" → dernière déclaration
-                - "package_options" → options du dernier import
-                - "command" → toutes les occurrences
+    Paramètres
+    ----------
+    text : str
+        Contenu LaTeX à analyser.
+    name : str
+        Nom de la commande ou du package à rechercher.
+    kind : str, optional
+        Type d'entité à rechercher. Défaut : "command_declaration".
+        Options :
+        - "command_declaration" : dernière déclaration de commande
+        - "package_options" : options du dernier import de package
+        - "command" : toutes les occurrences d'une commande
 
+    Retourne
+    --------
+    dict | list | None
+        - Pour "command_declaration" : dict ou None
+        - Pour "package_options" : liste d'options
+        - Pour "command" : liste de dicts (tous les appels)
+
+    Raises
+    ------
+    ValueError
+        Si le paramètre kind est invalide.
     """
     parsers = {
         "command_declaration": (parse_tex_command_declaration, "last"),
@@ -408,12 +480,20 @@ def find_tex_entity(text: str, name: str, kind: str = "command_declaration"):
 
 
 def parse_tex_command(line: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse une ligne TeX pour extraire l'appel d'une commande.
+    """Parse une ligne TeX pour extraire un appel de commande.
 
-    Retourne un dict avec :
-        - name : nom de la commande
+    Paramètres
+    ----------
+    line : str
+        Ligne LaTeX à analyser.
+
+    Retourne
+    --------
+    dict, optional
+        Dictionnaire contenant :
+        - name : nom de la commande (sans backslash)
         - args : liste de dicts {"value": str, "required": True}
+        Retourne None si aucune commande trouvée ou ligne commentée.
     """
     stripped = line.lstrip()
     if stripped.startswith("%"):
@@ -453,16 +533,28 @@ def parse_tex_command(line: str) -> Optional[Dict[str, Any]]:
 
 
 def parse_tex_command_declaration(line: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse une ligne TeX pour extraire les infos de déclaration de commande.
+    """Parse une ligne TeX pour extraire une déclaration de commande.
 
-    Retourne un dict avec :
-        - decl : type (def, gdef, edef, xdef, newcommand, renewcommand, ...)
-        - name : nom de la commande
+    Gère les déclarations de type \\newcommand, \\renewcommand,
+    \\def, \\gdef, \\edef, \\xdef et leurs variantes.
+
+    Paramètres
+    ----------
+    line : str
+        Ligne LaTeX à analyser.
+
+    Retourne
+    --------
+    dict, optional
+        Dictionnaire contenant :
+        - decl : type de déclaration (def, gdef, newcommand, etc.)
+        - name : nom de la commande (sans backslash)
         - value : corps de la commande
-        - options : éventuelles options (string ou None)
-        - args : nombre d’arguments attendus (0 si aucun)
-        - required : liste de booléens (True = obligatoire, False = optionnel)
+        - options : options éventuelles (str ou None)
+        - args : nombre d'arguments attendus (int)
+        - required : liste de bool (True=obligatoire, False=optionnel)
+        Retourne None si aucune déclaration trouvée, ligne commentée,
+        ou commande vide.
     """
     stripped = line.lstrip()
     if stripped.startswith("%"):
@@ -535,10 +627,23 @@ def parse_tex_command_declaration(line: str) -> Optional[Dict[str, Any]]:
 
 
 def parse_package_import(line: str) -> Optional[Dict[str, Any]]:
-    """Parse une ligne LaTeX pour détecter usepackage / RequirePackage.
+    """Parse une ligne LaTeX pour détecter un import de package.
 
-    Retourne dict {'decl': 'usepackage'|'RequirePackage', 'name': <package>,
-    'options': [opt1, opt2, ...]} ou None.
+    Gère \\usepackage et \\RequirePackage avec leurs options.
+
+    Paramètres
+    ----------
+    line : str
+        Ligne LaTeX à analyser.
+
+    Retourne
+    --------
+    dict, optional
+        Dictionnaire contenant :
+        - decl : 'usepackage' ou 'RequirePackage'
+        - name : nom du package
+        - options : liste des options
+        Retourne None si aucun import trouvé ou ligne commentée.
     """
     if not line or line.lstrip().startswith("%"):
         return None
@@ -563,10 +668,22 @@ def parse_package_import(line: str) -> Optional[Dict[str, Any]]:
 def parse_package_imports(content: str) -> List[str]:
     r"""Retourne la liste des noms de packages importés.
 
-    Gère:
-      - options: \\usepackage[optA,optB]{pkg}
-      - imports multiples: \\usepackage{pkgA,pkgB}
-      - chemins: \\usepackage{Dummy/Path/UPSTI_Document} -> UPSTI_Document
+    Paramètres
+    ----------
+    content : str
+        Contenu LaTeX complet.
+
+    Retourne
+    --------
+    List[str]
+        Liste des noms de packages trouvés.
+
+    Notes
+    -----
+    Gère :
+    - Options : \\usepackage[optA,optB]{pkg}
+    - Imports multiples : \\usepackage{pkgA,pkgB}
+    - Chemins : \\usepackage{Dummy/Path/UPSTI_Document} -> UPSTI_Document
     """
     pat = re.compile(r"\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}")
     packages: List[str] = []
@@ -582,7 +699,20 @@ def parse_package_imports(content: str) -> List[str]:
 
 
 def _extract_braced_value(s: str, start: int) -> str:
-    """Extrait le contenu d’un bloc {...} en gérant les accolades imbriquées."""
+    """Extrait le contenu d'un bloc {...} en gérant les accolades imbriquées.
+
+    Paramètres
+    ----------
+    s : str
+        Chaîne à analyser.
+    start : int
+        Position de l'accolade ouvrante.
+
+    Retourne
+    --------
+    str
+        Contenu extrait (sans les accolades englobantes).
+    """
     depth = 0
     value = []
     for i in range(start, len(s)):

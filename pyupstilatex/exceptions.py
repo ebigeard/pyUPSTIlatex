@@ -14,6 +14,12 @@ class CompilationStepError(UPSTIError):
 
     L'attribut `messages` contient la liste des messages générés lors de
     l'étape (liste de paires `[message, flag]`).
+
+    Paramètres
+    ----------
+    messages : List[List[str]]
+        Liste des messages générés lors de l'étape. Chaque message est
+        une paire [message: str, flag: str].
     """
 
     def __init__(self, messages: List[List[str]]):
