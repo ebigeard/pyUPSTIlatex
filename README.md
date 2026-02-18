@@ -21,9 +21,11 @@ Compatible avec les packages LaTeX `upsti-latex` (et `UPSTI_Document`), pyUPSTIl
 
 > « En tant que professeur de S2I en CPGE PT, je dois gérer une grande quantité de documents pédagogiques (plus de 600 cours, TD, TP, colles, QCM, DS, DM, etc.), avec de nombreux contenus scientifiques (équations, schémas, graphiques, etc.). Ce volume de documents à gérer rend la tâche ardue. Uniformiser et maintenir ces documents nécessite un peu d'organisation, et rend incontournables un certain nombre de micro tâches rébarbatives qu'il serait intéressant d'automatiser. »
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img width="500" height="345" alt="synopsis" src="https://github.com/user-attachments/assets/32915143-f25f-46ca-b7d8-9fe780417567" />
 </div>
+<!-- markdownlint-enable MD033 -->
 
 En savoir plus en consultant le wiki : [Concepts et structure du projet](https://github.com/ebigeard/pyUPSTIlatex/wiki/Concepts-et-structure-du-projet)
 
