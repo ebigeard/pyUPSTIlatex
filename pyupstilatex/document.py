@@ -519,7 +519,7 @@ class UPSTILatexDocument:
 
             # === 12- Fin du post traitement ===
             # DEBUG
-            compilation_cli_options["dry_run"] = False
+            # compilation_cli_options["dry_run"] = False
 
             if self.compilation_parameters.get("upload", False):
 
@@ -2610,7 +2610,9 @@ class UPSTILatexDocument:
                         f"Code de statut inattendu : {response.status_code}"
                     )
             except Exception as e:
-                return None, [[f"Erreur lors de l'appel au webhook : {e}.", "warning"]]
+                return "warning", [
+                    [f"Erreur lors de l'appel au webhook : {e}.", "warning"]
+                ]
 
         return "success", []
 
