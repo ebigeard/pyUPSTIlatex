@@ -121,6 +121,8 @@ def infos(ctx, path):
                 if meta.get("valeur") is not None
                 else meta.get("raw_value", "")
             )
+            if isinstance(valeur, list):
+                valeur = ", ".join(str(v) for v in valeur)
             initial_value = meta.get("initial_value", "")
             display_flag = meta.get("display_flag", "")
 
@@ -724,10 +726,6 @@ def update_config(ctx):
         with json_path.open("w", encoding="utf-8") as f:
             json.dump(new_json_config, f, ensure_ascii=False, indent=2)
 
-        if json_config is None:
-            messages_ecriture.append(
-                ["Fichier pyUPSTIlatex.json créé avec succès.", "success"]
-            )
     except PermissionError:
         messages_ecriture.append(
             [
@@ -752,13 +750,16 @@ def update_config(ctx):
             separator_before=True,
         )
 
-    messages_ecriture.append(
-        [
-            f"Fichier pyUPSTIlatex.json mis à jour avec succès : version "
-            f"{new_json_config.get('version', 'inconnue')}",
-            "success",
-        ]
-    )
+    version_str = new_json_config.get("version", "inconnue")
+    if json_config is None:
+        msg_final = (
+            f"Fichier pyUPSTIlatex.json téléchargé avec succès : version {version_str}"
+        )
+    else:
+        msg_final = (
+            f"Fichier pyUPSTIlatex.json mis à jour avec succès : version {version_str}"
+        )
+    messages_ecriture.append([msg_final, "success"])
     return _exit_with_messages(ctx, msg, messages_ecriture, separator_before=True)
 
 

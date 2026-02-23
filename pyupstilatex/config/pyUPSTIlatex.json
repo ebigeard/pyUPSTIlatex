@@ -1,6 +1,6 @@
 {
-  "version": "1.0.4",
-  "date": "22/02/2026",
+  "version": "1.0.8",
+  "date": "23/02/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -745,7 +745,9 @@
         "default": "calc",
         "tex_key": "UPSTIidDocument",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 2
     },
@@ -756,7 +758,9 @@
         "default": ".env",
         "tex_key": "UPSTInumeroVersion",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 3
     },
@@ -768,7 +772,10 @@
         "tex_key": "UPSTIidMatiere",
         "join_key": "nom",
         "tex_type": "command_declaration",
-        "accepted_types": ["str", "dict"],
+        "accepted_types": [
+          "str",
+          "dict"
+        ],
         "custom_tex_keys": [
           {
             "champ": "nom",
@@ -791,7 +798,10 @@
         "tex_key": "UPSTIvariante",
         "join_key": "slug",
         "tex_type": "command_declaration",
-        "accepted_types": ["str", "dict"],
+        "accepted_types": [
+          "str",
+          "dict"
+        ],
         "custom_declaration": "{nom: \"str\", parametres: \"dict\"}"
       },
       "ordre": 6
@@ -804,7 +814,10 @@
         "tex_key": "UPSTIidTypeDocument",
         "join_key": "slug",
         "tex_type": "command_declaration",
-        "accepted_types": ["str", "dict"],
+        "accepted_types": [
+          "str",
+          "dict"
+        ],
         "validate_rules": {
           "keys_in": "type_document"
         },
@@ -830,7 +843,9 @@
         "tex_key": "UPSTIidClasse",
         "join_key": "nom",
         "tex_type": "command_declaration",
-        "accepted_types": ["str"],
+        "accepted_types": [
+          "str"
+        ],
         "custom_tex_keys": [
           {
             "champ": "nom",
@@ -848,7 +863,12 @@
       "parametres": {
         "join_key": "slug",
         "join_source": "thematique",
-        "accepted_types": ["list"]
+        "accepted_types": [
+          "list"
+        ],
+        "validate_rules": {
+          "in": "thematique.slug"
+        }
       },
       "ordre": 9
     },
@@ -859,7 +879,9 @@
         "default": ".env",
         "tex_key": "UPSTItitreEnTete",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 11
     },
@@ -869,7 +891,9 @@
       "parametres": {
         "tex_key": "UPSTItitreEnTetePages",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 12
     },
@@ -879,7 +903,9 @@
       "parametres": {
         "tex_key": "UPSTIsousTitreEnTete",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 13
     },
@@ -889,7 +915,9 @@
       "parametres": {
         "tex_key": "UPSTIenTetePrincipalCustom",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 14
     },
@@ -899,7 +927,9 @@
       "parametres": {
         "tex_key": "UPSTItitre",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 15
     },
@@ -909,7 +939,9 @@
       "parametres": {
         "tex_key": "UPSTItitrePreambule",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 16
     },
@@ -919,7 +951,9 @@
       "parametres": {
         "tex_key": "UPSTImessage",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 17
     },
@@ -929,7 +963,9 @@
       "parametres": {
         "tex_key": "UPSTIduree",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 18
     },
@@ -939,7 +975,9 @@
       "parametres": {
         "tex_key": "UPSTIserie",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 19
     },
@@ -949,7 +987,9 @@
       "parametres": {
         "tex_key": "UPSTInumero",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 20
     },
@@ -959,7 +999,9 @@
       "parametres": {
         "tex_key": "UPSTInumeroChapitre",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 21
     },
@@ -969,7 +1011,9 @@
       "parametres": {
         "tex_key": "UPSTITDApplicationDirecte",
         "tex_type": "command_declaration",
-        "accepted_types": ["bool"]
+        "accepted_types": [
+          "bool"
+        ]
       },
       "ordre": 22
     },
@@ -979,7 +1023,9 @@
       "parametres": {
         "tex_key": "UPSTInoteBasDePremierePage",
         "tex_type": "command_declaration",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 23
     },
@@ -989,7 +1035,9 @@
       "parametres": {
         "tex_key": "UPSTIdocumentCollegial",
         "tex_type": "command_declaration",
-        "accepted_types": ["bool"]
+        "accepted_types": [
+          "bool"
+        ]
       },
       "ordre": 24
     },
@@ -1000,7 +1048,9 @@
         "default": ".env",
         "tex_key": "UPSTIauteur",
         "tex_type": "command_declaration",
-        "accepted_types": ["str"],
+        "accepted_types": [
+          "str"
+        ],
         "tex_command_override": "true"
       },
       "ordre": 26
@@ -1011,7 +1061,9 @@
       "parametres": {
         "tex_key": "UPSTIsource",
         "tex_type": "command_declaration",
-        "accepted_types": ["str"]
+        "accepted_types": [
+          "str"
+        ]
       },
       "ordre": 27
     },
@@ -1021,7 +1073,9 @@
       "parametres": {
         "tex_key": "batch",
         "tex_type": "batch_biblio",
-        "accepted_types": ["list"]
+        "accepted_types": [
+          "list"
+        ]
       },
       "ordre": 28
     },
@@ -1031,7 +1085,9 @@
       "parametres": {
         "default": "batch_pedagogie",
         "join_key": "nom",
-        "accepted_types": ["str"]
+        "accepted_types": [
+          "str"
+        ]
       },
       "ordre": 30
     },
@@ -1043,7 +1099,9 @@
         "tex_key": "UPSTI_Document",
         "join_key": "nom",
         "tex_type": "package_option_programme",
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 31
     },
@@ -1053,7 +1111,9 @@
       "parametres": {
         "tex_key": "UPSTIprogramme",
         "tex_type": "batch_competences",
-        "accepted_types": ["dict"],
+        "accepted_types": [
+          "dict"
+        ],
         "validate_rules": {
           "value_type": "dict",
           "custom_rule": "competences"
@@ -1065,7 +1125,9 @@
       "label": "Adapté pour",
       "description": "`adapte_pour`: niveaux de classe pour qui l'activité du document peut aussi être adapté.\r\n\r\n```\r\nadapte_pour: adapte_pour: [\"MP\", \"PSI\", \"PT\", \"TSI2\"]\r\n```\r\n\r\n- **valeurs possibles :** liste de noms de niveaux de classe définis dans `pyUPSTIlatex.json` (clé: `classe`, champ `niveau`). La première valeur est le niveau de classe pour lequel le document est initialement conçu.\r\n\r\n- **si absent des métadonnées :** ignoré (le niveau pour lequel le document est initialement conçu sera le niveau associé à la classe nécessairement définie dans les métadonnées)",
       "parametres": {
-        "accepted_types": ["list"],
+        "accepted_types": [
+          "list"
+        ],
         "validate_rules": {
           "in": "classe.niveau"
         }
@@ -1076,7 +1138,9 @@
       "label": "Description",
       "description": "`description`: description du document\r\n\r\n```\r\ndescription: | Ma description, sur plusieurs paragraphes éventuellement\r\n```\r\n\r\n- **valeurs possibles :** n'importe quelle `str`\r\n\r\n- **si absent des métadonnées :** ignoré",
       "parametres": {
-        "accepted_types": ["text"]
+        "accepted_types": [
+          "text"
+        ]
       },
       "ordre": 34
     },
@@ -1084,7 +1148,9 @@
       "label": "Macro-compétences (Calculées)",
       "description": "`macro_competences_calculees` : liste et poids des macro-compétences dans le document, calculés automatiquement à partir des compétences définies dans `competences`. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `macro_competences_forcees`).\r\n\r\n```\r\nmacro_competences_calculees: {analyser: 80, modeliser: 15, resoudre: 5}\r\n```\r\n\r\n- **valeurs possibles :** macro_competences définies dans `pyUPSTIlatex.json` (clé: `macro_competence`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
-        "accepted_types": ["dict"],
+        "accepted_types": [
+          "dict"
+        ],
         "validate_rules": {
           "sum": 100,
           "keys_in": "macro_competence",
@@ -1097,7 +1163,9 @@
       "label": "Domaines (Calculés)",
       "description": "`domaines_calcules` : liste et poids des grands domaines du programme, calculés automatiquement après analyse du code LaTeX. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `domaines_forces`).\r\n\r\n```\r\ndomaines_calcules: {meca: 80, autom: 15, construction: 5}\r\n```\r\n\r\n- **valeurs possibles :** domaines définies dans `pyUPSTIlatex.json` (clé: `domaine`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
-        "accepted_types": ["dict"],
+        "accepted_types": [
+          "dict"
+        ],
         "validate_rules": {
           "sum": 100,
           "keys_in": "domaine",
@@ -1110,7 +1178,9 @@
       "label": "Difficulté (Calculée)",
       "description": "`difficulte_calculee` : difficulté calculée à partir des difficultés de chaque question/activité. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `difficulte_forcee`).\r\n\r\n```\r\ndifficulte_calculee: 60\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
-        "accepted_types": ["int"],
+        "accepted_types": [
+          "int"
+        ],
         "validate_rules": {
           "valeur_max": 100
         }
@@ -1121,7 +1191,9 @@
       "label": "Hors programme (Calculé)",
       "description": "`hors_programme_calcule` : pourcentage de hors programme dans l'activité. N'est pas supposée être modifié \"en dur\" (dans ce cas, utiliser plutôt `hors_programme_force`).\r\n\r\n```\r\nhors_programme_calcule: 20\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** ignoré\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
-        "accepted_types": ["int"],
+        "accepted_types": [
+          "int"
+        ],
         "validate_rules": {
           "valeur_max": 100
         }
@@ -1132,7 +1204,9 @@
       "label": "Macro-compétences (Forcées)",
       "description": "`macro_competences_forcees` : liste et poids des macro-compétences dans le document, définis \"en dur\". Va overrider la valeur de  `macro_competences_calculees`.\r\n\r\n```\r\nmacro_competences_forcees: {analyser: 80, modeliser: 15, resoudre: 5}\r\n```\r\n\r\n- **valeurs possibles :** macro_competences définies dans `pyUPSTIlatex.json` (clé: `macro_competence`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `macro_competences_calculees`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
-        "accepted_types": ["dict"],
+        "accepted_types": [
+          "dict"
+        ],
         "validate_rules": {
           "sum": 100,
           "keys_in": "macro_competence",
@@ -1145,7 +1219,9 @@
       "label": "Domaines (Forcés)",
       "description": "`domaines_forces` : liste et poids des grands domaines du programme, définis \"en dur\". Va overrider la valeur de  `domaines_calcules`.\r\n\r\n```\r\ndomaines_forces: {meca: 80, autom: 15, construction: 5}\r\n```\r\n\r\n- **valeurs possibles :** domaines définies dans `pyUPSTIlatex.json` (clé: `domaine`, champ `slug`), affectées d'un pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `domaines_calcules`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - la somme des pourcentages doit être égale à 100.",
       "parametres": {
-        "accepted_types": ["dict"],
+        "accepted_types": [
+          "dict"
+        ],
         "validate_rules": {
           "sum": 100,
           "keys_in": "domaine",
@@ -1158,7 +1234,9 @@
       "label": "Difficulté (Forcée)",
       "description": "`difficulte_forcee` : difficulté de l'activité. Va overrider `difficulte_calculee`.\r\n\r\n```\r\ndifficulte_forcee: 60\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `difficulte_calculee`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
-        "accepted_types": ["int"],
+        "accepted_types": [
+          "int"
+        ],
         "validate_rules": {
           "valeur_max": 100
         }
@@ -1169,7 +1247,9 @@
       "label": "Hors programme (Forcé)",
       "description": "`hors_programme_force` : pourcentage de hors programme dans l'activité. Va overrider `hors_programme_calcule`.\r\n\r\n```\r\nhors_programme_calcule: 20\r\n```\r\n\r\n- **valeurs possibles :** pourcentage (`int`).\r\n\r\n- **si absent des métadonnées :** on utilisera la valeur de `hors_programme_calcule`, si définie.\r\n\r\n- **contraintes :**\r\n\r\n    - max : 100",
       "parametres": {
-        "accepted_types": ["int"],
+        "accepted_types": [
+          "int"
+        ],
         "validate_rules": {
           "valeur_max": 100
         }

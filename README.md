@@ -172,7 +172,6 @@ La **documentation complète** est disponible sur le [**Wiki GitHub**](https://g
 3. [Configuration et personnalisation](https://github.com/ebigeard/pyUPSTIlatex/wiki/Configuration-et-personnalisation)
 4. [Préparation de l'environnement pour utiliser pyUPSTIlatex](https://github.com/ebigeard/pyUPSTIlatex/wiki/Préparation-de-l'environnement)
 5. [Commandes CLI](https://github.com/ebigeard/pyUPSTIlatex/wiki/Commandes-CLI)
-6. [Tâches usuelles](https://github.com/ebigeard/pyUPSTIlatex/wiki/Tâches-usuelles)
 
 ## Exemples d'utilisation
 

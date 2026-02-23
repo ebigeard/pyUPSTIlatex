@@ -1,8 +1,8 @@
 """Configuration management from environment variables.
 
-This module assumes `.env` is automatically loaded at package import time
-(handled in pyupstilatex/__init__.py). It provides structured access to all
-configuration via dataclasses, as well as low-level helpers for direct access.
+This module loads secrets from custom/.env (if it exists) and configuration
+from TOML files. It provides structured access to all configuration via
+dataclasses, as well as low-level helpers for direct access.
 
 Primary Usage (recommended):
     from pyupstilatex.config import load_config
@@ -205,8 +205,9 @@ def _inject_toml_to_environ(toml_data: dict[str, Any]) -> None:
     - FTP_SECRET_KEY, FTP_USER, FTP_PASSWORD, FTP_HOST, FTP_PORT
     - SITE_SECRET_KEY
 
-    These secrets must be defined in custom/.env and are never overridden.
-    All other configuration MUST come from TOML files (not from .env).
+    These secrets may be defined in custom/.env and are never overridden
+    by TOML values. Si custom/.env n'existe pas, les valeurs par défaut
+    de config.py sont utilisées.
     """
     # List of secret keys that must come from .env only
     SECRET_KEYS = {
@@ -231,15 +232,27 @@ def _load_config_from_toml() -> None:
     """Load TOML configuration files and inject into os.environ.
 
     Loading order (later overrides earlier):
-    1. pyupstilatex/config/config.default.toml (versioned defaults)
-    2. custom/config.toml (local overrides, not versioned)
+    1. custom/.env for secrets (FTP_*, SITE_SECRET_KEY) — si le fichier existe
+    2. pyupstilatex/config/config.default.toml (versioned defaults)
+    3. custom/config.toml (local overrides, not versioned)
 
-    Then loads custom/.env for secrets (via dotenv in __init__.py).
+    Si custom/.env n'existe pas, les valeurs par défaut de config.py sont utilisées.
     """
     # Paths
     package_dir = Path(__file__).resolve().parent
     default_config_path = package_dir / "config" / "config.default.toml"
     custom_config_path = package_dir.parent / "custom" / "config.toml"
+    custom_env_path = package_dir.parent / "custom" / ".env"
+
+    # Load custom/.env for secrets FIRST (so they take priority over TOML)
+    # Si le fichier n'existe pas, on utilise les valeurs par défaut de config.py
+    if custom_env_path.exists():
+        try:
+            from dotenv import load_dotenv
+
+            load_dotenv(custom_env_path, override=True)
+        except Exception:
+            pass
 
     # Load default config
     default_config = _load_toml_file(default_config_path)
@@ -590,12 +603,13 @@ def load_config() -> AppConfig:
     """Load configuration from TOML files and environment variables.
 
     Loading order (later overrides earlier):
-    1. pyupstilatex/config/config.default.toml (versioned defaults)
-    2. custom/config.toml (local overrides, not versioned)
-    3. custom/.env (SECRETS ONLY: FTP_*, SITE_SECRET_KEY)
+    1. custom/.env (SECRETS ONLY: FTP_*, SITE_SECRET_KEY) — si le fichier existe
+    2. pyupstilatex/config/config.default.toml (versioned defaults)
+    3. custom/config.toml (local overrides, not versioned)
 
     All configuration MUST be in TOML files.
-    The .env file is ONLY for secrets (credentials, API keys).
+    custom/.env is ONLY for secrets (credentials, API keys).
+    Si custom/.env n'existe pas, les valeurs par défaut sont utilisées.
     TOML values always take priority over .env for non-secret keys.
     """
     # Load TOML configuration and inject into os.environ
