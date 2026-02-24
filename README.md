@@ -5,8 +5,8 @@
   <img src="integration/icones_et_logos/pyUPSTIlatex.png" alt="Logo pyUPSTIlatex" width="200"/>
   
   ![Version](https://img.shields.io/badge/version-2.0.0-green)
-  ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
   ![Status](https://img.shields.io/badge/status-beta-orange)
+  ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
   ![Python Version](https://img.shields.io/badge/python-3.9%2B-blue)
   ![LaTeX](https://img.shields.io/badge/LaTeX-%23008080?logo=latex&logoColor=white)
 </div>
