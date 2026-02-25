@@ -244,6 +244,8 @@ Emmanuel Bigeard - mail : [s2i@bigeard.me](s2i@bigeard.me) - site internet : [ht
 
 ## Remerciements
 
+- [Benjamin Aupetit](https://github.com/BenjaminAupetit), pour les tests, les idées et les contributions au code
+- [Pierre Quillery](https://sii.quillery.si) pour les tests et les idées (et pour me supporter à parler en boucle de cette affaire)
 - [Raphaël Allais](https://allais.eu/), dont les packages LaTeX pour la SI m'ont servi de base pour la création d'`UPSTI_Document`
 - Tous les collègues qui utilisent `UPSTI_Document` pour concevoir leurs documents pédagogiques (et qui ont eu la patience de lire mes documentations vaguement rédigées)
 - Tous les collègues qui partagent leur travail sur des sites perso

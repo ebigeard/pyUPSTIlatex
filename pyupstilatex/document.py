@@ -1890,7 +1890,6 @@ class UPSTILatexDocument:
 
         import subprocess
 
-    
         liste_fichiers_a_compiler: List[Dict[str]] = [
             {"nom": self.file.stem, "suffixe_affichage": ""}
         ]
