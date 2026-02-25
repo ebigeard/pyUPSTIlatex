@@ -44,6 +44,7 @@ dossier_ftp = "/"                               # Dossier sur le FTP où uploade
 nombre_compilations = 2                         # Nombre de compilations LaTeX à effectuer (pour résoudre les références croisées)
 affichage_detaille_dans_console = false         # Afficher les détails de la compilation dans la console (commandes exécutées, erreurs, etc.)
 copier_fichier_version = true                   # Si on créer et copier le fichier indiquant la version dans le dossier cible
+compilateur = "pdflatex"                        # Compilateur LaTeX à utiliser (pdflatex, lualatex, etc.)
 
 #--------------------------------------------------------------------------------------
 # Fichiers et extensions

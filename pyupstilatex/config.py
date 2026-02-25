@@ -318,6 +318,7 @@ class CompilationConfig:
     latex_nombre_compilations: int
 
     # Compilation
+    latex_compilateur: str
     affichage_detaille_dans_console: bool
     copier_fichier_version: bool
 
@@ -357,6 +358,9 @@ class CompilationConfig:
             # Paramètres de compilation LaTeX
             latex_nombre_compilations=get_int(
                 "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2
+            ),
+            latex_compilateur=get_str(
+                "COMPILATION_LATEX_COMPILATEUR", "pdflatex"
             ),
             # Compilation
             affichage_detaille_dans_console=get_bool(

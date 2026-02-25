@@ -1890,18 +1890,7 @@ class UPSTILatexDocument:
 
         import subprocess
 
-        try:
-            subprocess.run(
-                ["pdflatex", "--version"],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError:
-            return None, [
-                ["pdflatex n'est pas installé ou introuvable.", "fatal_error"]
-            ]
-
+    
         liste_fichiers_a_compiler: List[Dict[str]] = [
             {"nom": self.file.stem, "suffixe_affichage": ""}
         ]
@@ -1921,6 +1910,20 @@ class UPSTILatexDocument:
         est_un_document_a_trous = self._compilation_parameters.get(
             "est_un_document_a_trous", False
         )
+
+        # Test de l'installation du compilateur
+        compilateur = cfg.compilation.latex_compilateur
+        try:
+            subprocess.run(
+                [compilateur, "--version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            return None, [
+                [f"{compilateur} n'est pas installé ou introuvable.", "fatal_error"]
+            ]
 
         # Il faut d'abord créer les sources tex des fichiers accessibles
         fichiers_accessibles: List[Dict] = []
@@ -2029,6 +2032,7 @@ class UPSTILatexDocument:
 
         # Compilation des différents fichiers
         nombre_compilations = cfg.compilation.latex_nombre_compilations
+        compilateur = cfg.compilation.latex_compilateur
         build_dir = cfg.os.dossier_latex_build
         output_dir = self.file.parent
 
@@ -2092,10 +2096,11 @@ class UPSTILatexDocument:
                 else:
                     cwd_dir = output_dir
                     command = [
-                        "pdflatex",
+                        compilateur,
                         "-quiet",
                         "-synctex=1",
                         "-interaction=nonstopmode",
+                        f"-jobname={fic['job_name']}",
                         f"-job-name={fic['job_name']}",
                         f"-output-directory={build_dir_path}",
                         f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
