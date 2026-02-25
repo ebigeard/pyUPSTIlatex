@@ -2101,6 +2101,7 @@ class UPSTILatexDocument:
                         "-synctex=1",
                         "-interaction=nonstopmode",
                         f"-jobname={fic['job_name']}",
+                        f"-job-name={fic['job_name']}",
                         f"-output-directory={build_dir_path}",
                         f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
                     ]
