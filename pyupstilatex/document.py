@@ -2131,17 +2131,27 @@ class UPSTILatexDocument:
                             [["OK !", "success"]], "resultat_item"
                         )
 
-                except subprocess.CalledProcessError:
+                except subprocess.CalledProcessError as e:
                     message_erreur_compilation = [
                         "Erreur lors de la compilation LaTeX de la version "
                         f"{fic['affichage_nom_version']}",
                         "error",
                     ]
+
                     if compilation_options["verbose"] in ["normal"]:
                         self.msg.affiche_messages(
                             [message_erreur_compilation], "resultat_item"
                         )
                     compilation_messages.append(message_erreur_compilation)
+
+                    # TMP
+                    compilation_messages.append(
+                        [
+                            f"{e}",
+                            "info",
+                        ]
+                    )
+
                     compilation_OK = False
 
                 # On prépare la prochaine passe de compilation si nécessaire
