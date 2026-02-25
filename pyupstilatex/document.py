@@ -2138,19 +2138,21 @@ class UPSTILatexDocument:
                         "error",
                     ]
 
-                    if compilation_options["verbose"] in ["normal"]:
-                        self.msg.affiche_messages(
-                            [message_erreur_compilation], "resultat_item"
-                        )
-                    compilation_messages.append(message_erreur_compilation)
-
-                    # TMP
-                    compilation_messages.append(
+                    # DEBUG - TMP
+                    messages_tmp = [message_erreur_compilation]
+                    messages_tmp.append(
                         [
                             f"{e}",
                             "info",
                         ]
                     )
+
+                    if compilation_options["verbose"] in ["normal"]:
+                        # self.msg.affiche_messages(
+                        #     [message_erreur_compilation], "resultat_item"
+                        # )
+                        self.msg.affiche_messages(messages_tmp, "resultat_item")
+                    compilation_messages.append(message_erreur_compilation)
 
                     compilation_OK = False
 
