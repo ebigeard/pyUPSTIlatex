@@ -13,6 +13,7 @@ build/
 TODO.txt
 TODO.md
 *.eb
+wiki/
 
 # Conserver le dossier `custom/` et `custom/README.md`, ignorer les sous-dossiers
 custom/*
