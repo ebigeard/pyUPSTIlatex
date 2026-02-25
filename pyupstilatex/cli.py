@@ -343,8 +343,17 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
     default=False,
     help="Mode test: affiche les actions sans les exécuter.",
 )
+@click.option(
+    "--verbose",
+    "-v",
+    default="normal",
+    help=(
+        "Niveau de verbosité: 'all' (affiche tout y compris les détails "
+        "des erreurs), 'normal' (défaut, erreurs et warnings uniquement) ou 'silent'."
+    ),
+)
 @click.pass_context
-def compile(ctx, path, mode, dry_run):
+def compile(ctx, path, mode, dry_run, verbose):
     """Compile un fichier .tex ou tous les fichiers d'un dossier."""
 
     from pathlib import Path
@@ -360,10 +369,6 @@ def compile(ctx, path, mode, dry_run):
         mode = "normal"
     if mode not in ("deep", "quick"):
         mode = "normal"
-
-    # On récupère la config pour gérer le niveau de verbosité
-    cfg = load_config()
-    affiche_details = cfg.compilation.affichage_detaille_dans_console
 
     # Titre
     msg.titre1(f"COMPILATION de {chemin}")
@@ -422,10 +427,10 @@ def compile(ctx, path, mode, dry_run):
                 f"ces {COLOR_GREEN}{nb_documents} documents"
                 f"{COLOR_RESET} (la procédure peut-être très longue)"
             )
-            compile_verbose = "messages"
+            compile_verbose = "normal"
         else:
             str_fichiers_a_traiter = f"{COLOR_GREEN}ce fichier{COLOR_RESET}"
-            compile_verbose = "normal"
+            compile_verbose = "all"
 
         msg.titre2(
             f"Souhaitez-vous réellement compiler {str_fichiers_a_traiter} ? (O/N)"
@@ -467,7 +472,9 @@ def compile(ctx, path, mode, dry_run):
                     # Lancer la compilation
                     document = UPSTILatexDocument.from_path(doc["path"], msg=msg)[0]
                     result, messages = document.compile(
-                        mode=mode, verbose=compile_verbose, dry_run=dry_run
+                        mode=mode,
+                        verbose=compile_verbose,
+                        dry_run=dry_run,
                     )
                     # Protéger contre un statut inattendu
                     if result in statut_compilation_fichiers:
@@ -477,7 +484,7 @@ def compile(ctx, path, mode, dry_run):
                         statut_compilation_fichiers['error'].append(doc['filename'])
 
                     if nb_documents > 1:
-                        if affiche_details and result == "success":
+                        if result == "success":
                             messages.append(["OK !", "success"])
 
                         msg.affiche_messages(messages, "resultat_item")
@@ -520,7 +527,7 @@ def compile(ctx, path, mode, dry_run):
         compilation_unique = True
 
     if compilation_unique:
-        result, messages = doc.compile(mode=mode, verbose="normal", dry_run=dry_run)
+        result, messages = doc.compile(mode=mode, verbose=verbose, dry_run=dry_run)
 
         # Message de conclusion
         msg.separateur1()

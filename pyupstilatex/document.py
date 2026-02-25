@@ -348,8 +348,8 @@ class UPSTILatexDocument:
         verbose : str, optional
             Niveau de verbosité pour les messages renvoyés par la méthode.
             Valeurs acceptées :
-            - "normal" : affiche tout.
-            - "messages" : affiche juste les erreurs et warning.
+            - "all" : affiche tout, y compris les détails des erreurs.
+            - "normal" : affiche les erreurs et warnings.
             - "silent" : n'affiche rien.
         dry_run : bool, optional
             Si True, exécute un "dry run" où les actions sont affichées sans être
@@ -371,7 +371,7 @@ class UPSTILatexDocument:
 
         # Normaliser le niveau de verbosité et le mode
         valid_modes = {"deep", "normal", "quick"}
-        valid_verbose = {"normal", "messages", "silent"}
+        valid_verbose = {"all", "normal", "silent"}
 
         # Pour éviter de toujours passer ces éléments en paramètre
         compilation_cli_options = {
@@ -386,7 +386,7 @@ class UPSTILatexDocument:
         try:
 
             # Titre
-            if compilation_cli_options["verbose"] in ["normal"]:
+            if compilation_cli_options["verbose"] in ["normal", "all"]:
                 self.msg.titre2("Préparation de la compilation")
 
             # === 1- Vérification de l'intégrité du fichier ===
@@ -480,7 +480,7 @@ class UPSTILatexDocument:
                 messages_compilation.extend(messages)
 
             # Affichage titre intermédiaire
-            if compilation_cli_options["verbose"] in ["normal"]:
+            if compilation_cli_options["verbose"] in ["normal", "all"]:
                 self.msg.titre2("Compilation du document LaTeX")
 
             # === 10- Compilation Latex (TODO voir pour bibtex, si on le gère ici) ===
@@ -504,7 +504,7 @@ class UPSTILatexDocument:
                 "copier_pdf_dans_dossier_cible", False
             ) or self.compilation_parameters.get("upload", False):
                 if compilation_cli_options["verbose"] in [
-                    "normal"
+                    "all"
                 ] and compilation_cli_options["mode"] in ["deep", "normal"]:
                     self.msg.titre2("Post-traitements après compilation")
 
@@ -1164,7 +1164,7 @@ class UPSTILatexDocument:
         verbose : Optional[str], optional
             Niveau de verbosité pour l'affichage. Si None, utilise
                 `compilation_cli_options["verbose"]`.
-            Valeurs acceptées : "normal", "messages", "silent".
+            Valeurs acceptées : "all", "normal", "silent".
             Défaut : None.
         affichage : str, optional
             Message à afficher avant l'exécution de l'étape.
@@ -1183,16 +1183,12 @@ class UPSTILatexDocument:
             Levée si la fonction retourne None comme résultat, indiquant un échec
             de l'étape. L'exception contient la liste des messages d'erreur.
         """
-        format_last_message = bool(compilation_options["verbose"] != "messages")
-
-        # On récupère la config pour gérer le niveau de verbosité
-        cfg = load_config()
-        affiche_details = cfg.compilation.affichage_detaille_dans_console
+        format_last_message = compilation_options["verbose"]
 
         messages: List[List[str]] = []
         resultat = None
         if compilation_options["mode"] in mode_ok:
-            if compilation_options["verbose"] in ["normal"]:
+            if compilation_options["verbose"] in ["normal", "all"]:
                 self.msg.info(affichage)
 
             # Inspecter la signature pour savoir si on doit passer les options
@@ -1208,14 +1204,10 @@ class UPSTILatexDocument:
                 # Fallback si l'inspection échoue (ex: lambda, built-in)
                 resultat, messages = fonction()
 
-            if (
-                affiche_details
-                and compilation_options["verbose"] in ["normal"]
-                and len(messages) == 0
-            ):
+            if compilation_options["verbose"] in ["all"] and len(messages) == 0:
                 messages.append(["OK !", "success"])
 
-            if compilation_options["verbose"] in ["normal"]:
+            if compilation_options["verbose"] in ["normal", "all"]:
                 self.msg.affiche_messages(
                     messages, "resultat_item", format_last=format_last_message
                 )
@@ -1883,7 +1875,7 @@ class UPSTILatexDocument:
             et messages est une liste de [message, flag].
         """
 
-        if compilation_options["verbose"] in ["normal"]:
+        if compilation_options["verbose"] in ["normal", "all"]:
             self.msg.info(
                 "Préparation de la compilation (environnement et fichiers à compiler)"
             )
@@ -1898,7 +1890,6 @@ class UPSTILatexDocument:
 
         # Récupération de la config et des paramètres de compilation
         cfg = load_config()
-        affiche_details = cfg.compilation.affichage_detaille_dans_console
 
         versions_a_compiler = self._compilation_parameters.get(
             "versions_a_compiler", []
@@ -2021,11 +2012,7 @@ class UPSTILatexDocument:
             )
 
         # Fin de la préparation des tâches de compilation
-        if (
-            affiche_details
-            and compilation_options["verbose"] in ["normal"]
-            and len(messages) == 0
-        ):
+        if compilation_options["verbose"] in ["all"] and len(messages) == 0:
             messages.append(["OK !", "success"])
         self.msg.affiche_messages(messages, "resultat_item")
 
@@ -2076,7 +2063,7 @@ class UPSTILatexDocument:
                     if compile_bibtex and passe_compilation > 2
                     else passe_compilation
                 )
-                if compilation_options["verbose"] in ["normal"]:
+                if compilation_options["verbose"] in ["normal", "all"]:
                     if compile_bibtex and passe_compilation == 2:
                         affichage_nom_fichier_dans_message = (
                             "Compilation de la bibliographie (passe bibtex)"
@@ -2102,6 +2089,7 @@ class UPSTILatexDocument:
                     cwd_dir = output_dir
                     command = [
                         compilateur,
+                        "-file-line-error",
                         "-quiet",
                         "-synctex=1",
                         "-interaction=nonstopmode",
@@ -2126,33 +2114,66 @@ class UPSTILatexDocument:
                         self._liste_fichiers["compiled"].append(pdf_compiled_path)
 
                     # Affichage de la confirmation si nécessaire
-                    if affiche_details and compilation_options["verbose"] in ["normal"]:
+                    if compilation_options["verbose"] in ["all"]:
                         self.msg.affiche_messages(
                             [["OK !", "success"]], "resultat_item"
                         )
 
                 except subprocess.CalledProcessError as e:
-                    message_erreur_compilation = [
-                        "Erreur lors de la compilation LaTeX de la version "
-                        f"{fic['affichage_nom_version']}",
-                        "error",
-                    ]
-
-                    # DEBUG - TMP
-                    messages_tmp = [message_erreur_compilation]
-                    messages_tmp.append(
-                        [
-                            f"{e}",
-                            "info",
-                        ]
-                    )
-
                     if compilation_options["verbose"] in ["normal"]:
-                        # self.msg.affiche_messages(
-                        #     [message_erreur_compilation], "resultat_item"
-                        # )
-                        self.msg.affiche_messages(messages_tmp, "resultat_item")
-                    compilation_messages.append(message_erreur_compilation)
+                        self.msg.affiche_messages(
+                            [
+                                [
+                                    "Echec de la compilation. Executer pyupstilatex "
+                                    "compile avec l'option --verbose all pour en "
+                                    "savoir plus.",
+                                    "error",
+                                ]
+                            ],
+                            "resultat_item",
+                        )
+                    elif compilation_options["verbose"] in ["all"]:
+                        message_erreur_compilation = [
+                            f"{e}",
+                            "error",
+                        ]
+                        compilation_messages.append(message_erreur_compilation)
+
+                        # Afficher les erreurs de log
+                        log_path = build_dir_path / f"{fic['job_name']}.log"
+                        if log_path.exists():
+                            try:
+                                import re
+
+                                log_content = log_path.read_text(
+                                    encoding="utf-8", errors="ignore"
+                                )
+                                lines = log_content.splitlines()
+                                error_lines = []
+                                for idx, line in enumerate(lines):
+                                    if line.startswith("!") or re.match(
+                                        r"^\S*\.?tex:\d+:", line
+                                    ):
+                                        error_lines.append(line)
+                                        # Ajouter la ligne suivante si elle commence
+                                        # par "l." (ex: "l.62 \pouet")
+                                        next_line = (
+                                            lines[idx + 1]
+                                            if idx + 1 < len(lines)
+                                            else ""
+                                        )
+                                        if next_line.startswith("l."):
+                                            error_lines.append(next_line)
+                                # Limiter à 10 entrées d'erreur
+                                for err_line in error_lines[:10]:
+                                    compilation_messages.append([err_line, "error"])
+
+                                self.msg.affiche_messages(
+                                    compilation_messages, "resultat_item"
+                                )
+
+                            except Exception:
+                                pass
 
                     compilation_OK = False
 
@@ -2632,9 +2653,15 @@ class UPSTILatexDocument:
                         f"Code de statut inattendu : {response.status_code}"
                     )
             except Exception as e:
-                return "warning", [
-                    [f"Erreur lors de l'appel au webhook : {e}.", "warning"]
-                ]
+                if compilation_options["verbose"] in ["all"]:
+                    msg_webhook = f"{e}."
+                else:
+                    msg_webhook = (
+                        "Erreur lors de l'appel au webhook. Executer "
+                        "pyupstilatex compile avec l'option --verbose all pour en "
+                        "savoir plus."
+                    )
+                return "warning", [[msg_webhook, "warning"]]
 
         return "success", []
 

@@ -319,7 +319,6 @@ class CompilationConfig:
 
     # Compilation
     latex_compilateur: str
-    affichage_detaille_dans_console: bool
     copier_fichier_version: bool
 
     @classmethod
@@ -359,13 +358,8 @@ class CompilationConfig:
             latex_nombre_compilations=get_int(
                 "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2
             ),
-            latex_compilateur=get_str(
-                "COMPILATION_LATEX_COMPILATEUR", "pdflatex"
-            ),
+            latex_compilateur=get_str("COMPILATION_LATEX_COMPILATEUR", "pdflatex"),
             # Compilation
-            affichage_detaille_dans_console=get_bool(
-                "COMPILATION_AFFICHAGE_DETAILLE_DANS_CONSOLE", False
-            ),
             copier_fichier_version=get_bool("COMPILATION_COPIER_FICHIER_VERSION", True),
         )
 
