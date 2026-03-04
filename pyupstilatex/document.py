@@ -1661,8 +1661,14 @@ class UPSTILatexDocument:
         if not compilation_options["dry_run"]:
             try:
                 images_dir.mkdir(parents=True, exist_ok=True)
-            except Exception:
-                pass
+            except Exception as e:
+                return None, [
+                    [
+                        f"Impossible de créer le dossier images ({images_dir}) : {e}. "
+                        "Le QRcode n'a pas été créé.",
+                        "fatal_error",
+                    ]
+                ]
 
         qrcode_filename = f"{cfg.os.nom_fichier_qrcode}.png"
         qrcode_path = images_dir / qrcode_filename
@@ -1674,9 +1680,9 @@ class UPSTILatexDocument:
             try:
                 # TODO : ici on pourrait faire un plus joli QRcode avec logo,couleurs...
                 qrcode.make(url).save(qrcode_path)
-            except Exception:
+            except Exception as e:
                 return None, [
-                    ["Erreur lors de la génération du QRcode.", "fatal_error"]
+                    [f"Erreur lors de la génération du QRcode : {e}", "fatal_error"]
                 ]
 
         return str(qrcode_path), []
@@ -2211,6 +2217,18 @@ class UPSTILatexDocument:
         cfg = load_config()
         dest_folder = self.file.parent / cfg.os.dossier_cible_par_rapport_au_fichier_tex
 
+        # Créer le dossier cible s'il n'existe pas (nécessaire sur MacOS/Linux)
+        if not compilation_options["dry_run"]:
+            try:
+                dest_folder.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                return None, [
+                    [
+                        f"Impossible de créer le dossier cible ({dest_folder}) : {e}",
+                        "fatal_error",
+                    ]
+                ]
+
         # On génère d'abord le fichier version si nécessaire
         if bool(cfg.compilation.copier_fichier_version):
             fichier_version_pattern = cfg.os.format_nom_fichier_version
@@ -2381,7 +2399,7 @@ class UPSTILatexDocument:
             # Copie du dossier sources dans le dossier temporaire
             dossier_source = self.file.parent / cfg.os.dossier_latex_sources
             dossier_cible = zip_tmp_folder / cfg.os.dossier_latex_sources
-            if not compilation_options["dry_run"]:
+            if not compilation_options["dry_run"] and dossier_source.is_dir():
                 shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
 
             # Création du fichier zip
@@ -2434,15 +2452,16 @@ class UPSTILatexDocument:
 
         # Chercher les fichiers correspondants
         try:
-            fichiers_diaporama = [
-                f
-                for f in diaporama_folder.iterdir()
-                if f.is_file()
-                and f.name.startswith(nom_fichier_diaporama)
-                and f.suffix in liste_extensions_diaporama
-            ]
-            for diaporama in fichiers_diaporama:
-                self._liste_fichiers["autres"].append(Path(diaporama))
+            if diaporama_folder.is_dir():
+                fichiers_diaporama = [
+                    f
+                    for f in diaporama_folder.iterdir()
+                    if f.is_file()
+                    and f.name.startswith(nom_fichier_diaporama)
+                    and f.suffix in liste_extensions_diaporama
+                ]
+                for diaporama in fichiers_diaporama:
+                    self._liste_fichiers["autres"].append(Path(diaporama))
 
         except Exception as e:
             messages.append(
