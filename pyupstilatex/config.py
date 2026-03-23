@@ -455,12 +455,16 @@ class OSConfig:
 class PolyConfig:
     nombre_de_pages_par_feuille: int
     recto_verso: bool
+    nombre_exemplaires_par_document: int
 
     @classmethod
     def from_env(cls) -> "PolyConfig":
         return cls(
             nombre_de_pages_par_feuille=get_int("POLY_NOMBRE_DE_PAGES_PAR_FEUILLE", 2),
             recto_verso=get_bool("POLY_RECTO_VERSO", True),
+            nombre_exemplaires_par_document=get_int(
+                "POLY_NOMBRE_EXEMPLAIRES_PAR_DOCUMENT", 1
+            ),
         )
 
 

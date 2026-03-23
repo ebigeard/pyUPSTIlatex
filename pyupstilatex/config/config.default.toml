@@ -105,6 +105,7 @@ fichiers_a_exclure = [                          # Masques de fichiers à ignorer
 [poly]
 nombre_de_pages_par_feuille = 2                 # Nombre de pages du document original à faire tenir sur une feuille du poly (ex: 2 pour faire tenir 2 pages sur une feuille A4)
 recto_verso = true                              # Si le poly doit être généré en recto verso (true) ou en recto simple (false). Cela conditionnera l'ajout de pages blanches.
+nombre_exemplaires_par_document = 1             # Nombre d'exemplaires à générer pour chaque document (ex: 2 pour avoir 2 exemplaires de chaque document dans le poly)
 
 #--------------------------------------------------------------------------------------
 # Configuration FTP (secrets dans custom/.env)

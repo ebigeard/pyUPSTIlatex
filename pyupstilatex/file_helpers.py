@@ -442,6 +442,7 @@ def create_yaml_for_poly(
             "titre": "[Impossible de trouver le titre]",
         },
         "parametres_compilation": {
+            "nombre_exemplaires_par_document": cfg.poly.nombre_exemplaires_par_document,
             "versions_accessibles": [],
         },
         "logo": "[Impossible de trouver le fichier logo]",
@@ -1159,7 +1160,18 @@ def create_poly(chemin_fichier_yaml: Path, msg) -> tuple[bool, List[List[str]]]:
 
             # Remplacer le placeholder par le suffixe calculé
             chemin_pdf = str(fichier_info["template"]).replace("[suffixe]", suffixe)
-            liste_fichiers_a_combiner_avec_suffixe.append(chemin_pdf)
+
+            # Dupliquer le document si nécessaire
+            # (pas pour la page de garde, pas pour la version prof)
+            nb_exemplaires = 1
+            if fichier_info["source"] is not None and fichier_pdf["version"] != "prof":
+                nb_exemplaires = max(
+                    1,
+                    parametres_compilation.get("nombre_exemplaires_par_document", 1),
+                )
+
+            for _ in range(nb_exemplaires):
+                liste_fichiers_a_combiner_avec_suffixe.append(chemin_pdf)
 
         resultat_combinaison, messages_combinaison = combine_pdf(
             liste_fichiers_a_combiner_avec_suffixe,
