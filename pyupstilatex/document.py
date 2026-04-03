@@ -68,7 +68,8 @@ class UPSTILatexDocument:
         default=None, init=False
     )
     _liste_fichiers: Dict[str, List[Path]] = field(
-        default_factory=lambda: {"compiled": [], "autres": []}, init=False
+        default_factory=lambda: {"compiled": [], "telechargeables": [], "autres": []},
+        init=False,
     )
 
     # =========================================================================
@@ -2415,7 +2416,7 @@ class UPSTILatexDocument:
             else:
                 fichier_zip = nom_fichier_zip.with_suffix('.zip')
 
-            self._liste_fichiers["autres"].append(fichier_zip)
+            self._liste_fichiers["telechargeables"].append(fichier_zip)
 
             # Suppression du dossier temporaire
             if not compilation_options["dry_run"]:
@@ -2461,7 +2462,7 @@ class UPSTILatexDocument:
                     and f.suffix in liste_extensions_diaporama
                 ]
                 for diaporama in fichiers_diaporama:
-                    self._liste_fichiers["autres"].append(Path(diaporama))
+                    self._liste_fichiers["telechargeables"].append(Path(diaporama))
 
         except Exception as e:
             messages.append(
@@ -2481,7 +2482,9 @@ class UPSTILatexDocument:
             local_path = self.file.parent
 
         compiled_files = [str(f.name) for f in self._liste_fichiers.get("compiled", [])]
-
+        downloadable_files = [
+            str(f.name) for f in self._liste_fichiers.get("telechargeables", [])
+        ]
         self._liste_fichiers["autres"].append(info_file)
         other_files = [str(f.name) for f in self._liste_fichiers.get("autres", [])]
 
@@ -2499,6 +2502,7 @@ class UPSTILatexDocument:
             "metadata": self._metadata,
             "compilation_parameters": self._compilation_parameters,
             "compiled_files": compiled_files,
+            "downloadable_files": downloadable_files,
             "other_files": other_files,
             "local_path": local_path.resolve().as_posix(),
         }
@@ -2556,9 +2560,11 @@ class UPSTILatexDocument:
         is_local = cfg.ftp.mode_local
 
         # Liste des fichiers à uploader
-        liste_fichiers_a_uploader = self._liste_fichiers.get(
-            "compiled", []
-        ) + self._liste_fichiers.get("autres", [])
+        liste_fichiers_a_uploader = (
+            self._liste_fichiers.get("compiled", [])
+            + self._liste_fichiers.get("telechargeables", [])
+            + self._liste_fichiers.get("autres", [])
+        )
 
         if not is_local:
             user = cfg.ftp.user
@@ -2770,7 +2776,7 @@ class UPSTILatexDocument:
         instance._file = None
         instance._pyupstilatex_handler = None
         instance._latex_handler = None
-        instance._liste_fichiers = {"compiled": [], "autres": []}
+        instance._liste_fichiers = {"compiled": [], "telechargeables": [], "autres": []}
         return instance
 
     def _read_fichier_parametres_compilation(
