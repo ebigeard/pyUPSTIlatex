@@ -79,7 +79,6 @@ latex = "LaTeX"                                 # Nom du dossier qui contient le
 latex_build = "build"                           # Nom du dossier de compilation LaTeX généré à côté du fichier tex   
 latex_sources = "src"                           # Nom du dossier qui contient les sources LaTeX (fichier inclu dans le zip des sources)
 latex_sources_images = "images"                 # Nom du sous-dossier de latex_sources qui contient les images
-tmp_pour_zip = "temp_zip"                       # Nom du dossier temporaire utilisé pour créer le zip des sources
 poly = "_poly"                                  # Nom du dossier créé lors de la création d'un poly
 poly_backup_yaml = "_bak"                       # Nom du dossier de backup (sous-dossier de poly) des fichiers YAML lors de la création d'un poly
 poly_page_de_garde = "page_de_garde"            # Nom du dossier (sous-dossier de poly) contenant la page de garde générée pour un poly

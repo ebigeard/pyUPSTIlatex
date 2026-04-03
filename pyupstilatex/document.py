@@ -2,6 +2,7 @@ import glob
 import inspect
 import shutil
 import time
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
@@ -2382,49 +2383,35 @@ class UPSTILatexDocument:
             (result, messages) où result contient le Path du fichier zip créé,
             et messages est une liste de [message, flag].
         """
-        # Chargement de la configuration
         cfg = load_config()
-        zip_tmp_folder = self.file.parent / cfg.os.dossier_tmp_pour_zip
 
-        try:
-            # Création du dossier temporaire
-            if not compilation_options["dry_run"]:
-                zip_tmp_folder.mkdir(parents=True, exist_ok=True)
+        nom_fichier_zip = self.file.parent / (
+            str(self.file.stem) + cfg.os.suffixe_nom_fichier_sources
+        )
+        fichier_zip = nom_fichier_zip.with_suffix('.zip')
 
-            # Copie du fichier tex dans le dossier temporaire
+        if not compilation_options["dry_run"]:
             fichier_source = self.file.path
-            fichier_cible = zip_tmp_folder / fichier_source.name
-            if not compilation_options["dry_run"]:
-                shutil.copy2(fichier_source, fichier_cible)
-
-            # Copie du dossier sources dans le dossier temporaire
             dossier_source = self.file.parent / cfg.os.dossier_latex_sources
-            dossier_cible = zip_tmp_folder / cfg.os.dossier_latex_sources
-            if not compilation_options["dry_run"] and dossier_source.is_dir():
-                shutil.copytree(dossier_source, dossier_cible, dirs_exist_ok=True)
+            nom_dossier_sources = Path(cfg.os.dossier_latex_sources).name
 
-            # Création du fichier zip
-            nom_fichier_zip = self.file.parent / (
-                str(self.file.stem) + cfg.os.suffixe_nom_fichier_sources
-            )
-            if not compilation_options["dry_run"]:
-                fichier_zip = Path(
-                    shutil.make_archive(
-                        nom_fichier_zip.as_posix(), 'zip', zip_tmp_folder.as_posix()
-                    )
-                )
-            else:
-                fichier_zip = nom_fichier_zip.with_suffix('.zip')
+            try:
+                with zipfile.ZipFile(fichier_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    # Ajouter le fichier .tex à la racine de l'archive
+                    zf.write(fichier_source, fichier_source.name)
 
-            self._liste_fichiers["telechargeables"].append(fichier_zip)
+                    # Ajouter le dossier sources avec ses sous-dossiers
+                    if dossier_source.is_dir():
+                        for fichier in dossier_source.rglob('*'):
+                            if fichier.is_file():
+                                arcname = Path(
+                                    nom_dossier_sources
+                                ) / fichier.relative_to(dossier_source)
+                                zf.write(fichier, arcname)
+            except Exception as e:
+                return None, [[f"Erreur lors de la création du zip : {e}.", "warning"]]
 
-            # Suppression du dossier temporaire
-            if not compilation_options["dry_run"]:
-                shutil.rmtree(zip_tmp_folder.as_posix())
-
-        except Exception as e:
-            return None, [[f"Erreur lors de la création du zip : {e}.", "warning"]]
-
+        self._liste_fichiers["telechargeables"].append(fichier_zip)
         return "success", []
 
     def _cp_create_info_file(

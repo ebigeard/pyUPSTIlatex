@@ -1,5 +1,5 @@
 {
-  "version": "1.0.10",
+  "version": "1.0.11",
   "date": "03/04/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
@@ -481,8 +481,20 @@
     "analyse-et-modelisation-des-systemes": {
       "nom": "Analyse et modélisation des systèmes",
       "slug": "analyse-et-modelisation-des-systemes",
-      "code": "ads",
+      "code": "ams",
       "parent": null
+    },
+    "analyse-des-systemes": {
+      "nom": "Analyse des systèmes",
+      "slug": "analyse-des-systemes",
+      "code": "ads",
+      "parent": "analyse-et-modelisation-des-systemes"
+    },
+    "modelisation-des-systemes": {
+      "nom": "Modélisation des systèmes",
+      "slug": "modelisation-des-systemes",
+      "code": "mds",
+      "parent": "analyse-et-modelisation-des-systemes"
     },
     "analyse-et-modelisation-des-mecanismes": {
       "nom": "Analyse et modélisation des mécanismes",
@@ -493,7 +505,7 @@
     "modelisation-geometrique-des-systemes-de-solides": {
       "nom": "Modélisation géométrique des systèmes de solides",
       "slug": "modelisation-geometrique-des-systemes-de-solides",
-      "code": "mgds",
+      "code": "mgss",
       "parent": "analyse-et-modelisation-des-mecanismes"
     },
     "theorie-des-mecanismes": {
@@ -502,35 +514,29 @@
       "code": "tdm",
       "parent": "analyse-et-modelisation-des-mecanismes"
     },
-    "cin": {
-      "nom": "Cinématique",
-      "slug": "cin",
-      "code": "cine",
-      "parent": null
+    "cinematique": {
+      "nom": "Cinématique du solide",
+      "slug": "cinematique",
+      "code": "cin",
+      "parent": "cinematique"
     },
     "equations-mouvement": {
       "nom": "Équations de mouvement",
       "slug": "equations-mouvement",
       "code": "edm",
-      "parent": "cin"
+      "parent": "cinematique"
     },
     "loi-entree-sortie": {
       "nom": "Loi entrée/sortie",
       "slug": "loi-entree-sortie",
       "code": "les",
-      "parent": "cin"
-    },
-    "cinematique": {
-      "nom": "Cinématique du solide",
-      "slug": "cinematique",
-      "code": "cin",
-      "parent": "cin"
+      "parent": "cinematique"
     },
     "cinematique-graphique": {
       "nom": "Cinématique graphique",
       "slug": "cinematique-graphique",
       "code": "cingr",
-      "parent": "cin"
+      "parent": "cinematique"
     },
     "actions-mecaniques": {
       "nom": "Actions mécaniques",
@@ -544,9 +550,9 @@
       "code": "mam",
       "parent": "actions-mecaniques"
     },
-    "pfs": {
+    "principe-fondamental-de-la-statique": {
       "nom": "Principe Fondamental de la Statique",
-      "slug": "pfs",
+      "slug": "principe-fondamental-de-la-statique",
       "code": "pfs",
       "parent": "actions-mecaniques"
     },
@@ -562,9 +568,9 @@
       "code": "dyn",
       "parent": null
     },
-    "pfd": {
+    "principe-fondamental-de-la-dynamique": {
       "nom": "Principe Fondamental de la Dynamique",
-      "slug": "pfd",
+      "slug": "principe-fondamental-de-la-dynamique",
       "code": "pfd",
       "parent": "dynamique"
     },

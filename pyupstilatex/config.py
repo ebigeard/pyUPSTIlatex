@@ -391,7 +391,6 @@ class OSConfig:
     dossier_latex_build: str
     dossier_latex_sources: str
     dossier_latex_sources_images: str
-    dossier_tmp_pour_zip: str
     dossier_poly: str
     dossier_poly_backup_yaml: str
     dossier_poly_page_de_garde: str
@@ -442,7 +441,6 @@ class OSConfig:
             dossier_latex_sources_images=get_str(
                 "OS_DOSSIER_LATEX_SOURCES_IMAGES", "images"
             ),
-            dossier_tmp_pour_zip=get_str("OS_DOSSIER_TMP_POUR_ZIP", "temp_zip"),
             dossier_poly=get_str("OS_DOSSIER_POLY", "_poly"),
             dossier_poly_backup_yaml=get_str("OS_DOSSIER_POLY_BACKUP_YAML", "_bak"),
             dossier_poly_page_de_garde=get_str(
