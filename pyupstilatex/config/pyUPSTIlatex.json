@@ -1,6 +1,6 @@
 {
-  "version": "1.0.9",
-  "date": "31/03/2026",
+  "version": "1.0.10",
+  "date": "03/04/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -441,24 +441,19 @@
     }
   },
   "domaine": {
-    "analyse-et-modelisation-des-systemes": {
+    "ams": {
       "nom": "Analyse et modélisation des systèmes",
-      "slug": "analyse-et-modelisation-des-systemes",
+      "slug": "ams",
       "couleur": "#FFFFFF"
     },
-    "autres": {
+    "aut": {
       "nom": "Autres",
-      "slug": "autres",
+      "slug": "aut",
       "couleur": "#FFFFFF"
     },
-    "autom": {
+    "com": {
       "nom": "Commande des systèmes",
-      "slug": "autom",
-      "couleur": "#FFFFFF"
-    },
-    "construction": {
-      "nom": "Construction",
-      "slug": "construction",
+      "slug": "com",
       "couleur": "#FFFFFF"
     },
     "elec": {
@@ -476,9 +471,9 @@
       "slug": "meca",
       "couleur": "#FFFFFF"
     },
-    "techno": {
+    "tec": {
       "nom": "Technologie",
-      "slug": "techno",
+      "slug": "tec",
       "couleur": "#FFFFFF"
     }
   },
@@ -603,10 +598,10 @@
       "code": "elec",
       "parent": null
     },
-    "conversion-electromagnetique": {
-      "nom": "Conversion électromagnétique",
-      "slug": "conversion-electromagnetique",
-      "code": "celm",
+    "electrocinetique": {
+      "nom": "Électrocinétique",
+      "slug": "electrocinetique",
+      "code": "ecin",
       "parent": "genie-electrique"
     },
     "convertisseurs-statiques": {
@@ -615,10 +610,10 @@
       "code": "cstat",
       "parent": "genie-electrique"
     },
-    "electrocinetique": {
-      "nom": "Électrocinétique",
-      "slug": "electrocinetique",
-      "code": "ecin",
+    "conversion-electromagnetique": {
+      "nom": "Conversion électromagnétique",
+      "slug": "conversion-electromagnetique",
+      "code": "celm",
       "parent": "genie-electrique"
     },
     "slci": {
@@ -687,10 +682,34 @@
       "code": "tec",
       "parent": null
     },
+    "representation-graphique-du-reel": {
+      "nom": "Représentation graphique du réel",
+      "slug": "representation-graphique-du-reel",
+      "code": "rgr",
+      "parent": "technologie"
+    },
+    "liaisons-mecaniques": {
+      "nom": "Liaisons mécaniques",
+      "slug": "liaisons-mecaniques",
+      "code": "lm",
+      "parent": "technologie"
+    },
+    "ppm": {
+      "nom": "Relation Produit-Matériaux-Procédés",
+      "slug": "ppm",
+      "code": "ppm",
+      "parent": "technologie"
+    },
     "transmission-de-puissance": {
       "nom": "Transmission de puissance",
       "slug": "transmission-de-puissance",
       "code": "tdp",
+      "parent": "technologie"
+    },
+    "specification-des-produits": {
+      "nom": "Spécification des produits",
+      "slug": "specification-des-produits",
+      "code": "spp",
       "parent": "technologie"
     },
     "divers": {
@@ -698,36 +717,6 @@
       "slug": "divers",
       "code": "div",
       "parent": "technologie"
-    },
-    "construction-mecanique": {
-      "nom": "Construction mécanique",
-      "slug": "construction-mecanique",
-      "code": "cst",
-      "parent": null
-    },
-    "representation-graphique-du-reel": {
-      "nom": "Représentation graphique du réel",
-      "slug": "representation-graphique-du-reel",
-      "code": "rgr",
-      "parent": "construction-mecanique"
-    },
-    "liaisons-mecaniques": {
-      "nom": "Liaisons mécaniques",
-      "slug": "liaisons-mecaniques",
-      "code": "lm",
-      "parent": "construction-mecanique"
-    },
-    "ppm": {
-      "nom": "Relation Produit-Matériaux-Procédés",
-      "slug": "ppm",
-      "code": "ppm",
-      "parent": "construction-mecanique"
-    },
-    "specification-des-produits": {
-      "nom": "Spécification des produits",
-      "slug": "specification-des-produits",
-      "code": "spp",
-      "parent": "construction-mecanique"
     },
     "autres": {
       "nom": "Autres",
