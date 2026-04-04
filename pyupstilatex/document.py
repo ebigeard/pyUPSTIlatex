@@ -1779,9 +1779,9 @@ class UPSTILatexDocument:
                 etat_id_unique = "changed"
                 valeur_id_unique = nouvel_id_unique
 
-            comp_params, comp_params_messages = self.get_compilation_parameters()
-            if comp_params is not None:
-                self._compilation_parameters["etat_id_unique"] = etat_id_unique
+        comp_params, comp_params_messages = self.get_compilation_parameters()
+        if comp_params is not None:
+            self._compilation_parameters["etat_id_unique"] = etat_id_unique
 
         valeur_id_unique = valeur_id_unique or id_unique
         return valeur_id_unique, [[message, flag]] if message and flag else []
