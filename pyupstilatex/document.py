@@ -68,7 +68,7 @@ class UPSTILatexDocument:
     _latex_handler: Optional[DocumentLatexVersionHandler] = field(
         default=None, init=False
     )
-    _liste_fichiers: Dict[str, List[Path]] = field(
+    _liste_fichiers: Dict[str, List[Dict]] = field(
         default_factory=lambda: {"compiled": [], "telechargeables": [], "autres": []},
         init=False,
     )
@@ -1950,6 +1950,8 @@ class UPSTILatexDocument:
                         "fichier_tex": fichier_principal["nom"],
                         "job_name": fichier_principal["nom"],
                         "option": "Pub",
+                        "nature_fichier": "standard",
+                        "type_fichier": "eleve",
                     }
                 )
                 # Version élève (doc à trous) pour le fichier principal
@@ -1961,6 +1963,8 @@ class UPSTILatexDocument:
                             f"{fichier_principal['nom']}{cfg.os.suffixe_nom_fichier_a_trous}"
                         ),
                         "option": "E",
+                        "nature_fichier": "standard",
+                        "type_fichier": "a_trous",
                     }
                 )
                 # Version élève (doc à trous) pour chaque fichier accessible
@@ -1979,6 +1983,8 @@ class UPSTILatexDocument:
                                 f"{self.file.stem}{cfg.os.suffixe_nom_fichier_a_trous}{fichier_accessible['suffixe']}"
                             ),
                             "option": "E",
+                            "nature_fichier": fichier_accessible["code"],
+                            "type_fichier": "a_trous",
                         }
                     )
             else:
@@ -1989,6 +1995,8 @@ class UPSTILatexDocument:
                         "fichier_tex": fichier_principal["nom"],
                         "job_name": fichier_principal["nom"],
                         "option": "E",
+                        "nature_fichier": "standard",
+                        "type_fichier": "eleve",
                     }
                 )
                 # Version élève pour chaque fichier accessible
@@ -2005,6 +2013,8 @@ class UPSTILatexDocument:
                                 f"{self.file.stem}{fichier_accessible['suffixe']}"
                             ),
                             "option": "E",
+                            "nature_fichier": fichier_accessible["code"],
+                            "type_fichier": "eleve",
                         }
                     )
 
@@ -2016,6 +2026,8 @@ class UPSTILatexDocument:
                     "fichier_tex": self.file.stem,
                     "job_name": (f"{self.file.stem}{cfg.os.suffixe_nom_fichier_prof}"),
                     "option": "P",
+                    "nature_fichier": "standard",
+                    "type_fichier": "corrige",
                 }
             )
 
@@ -2119,7 +2131,13 @@ class UPSTILatexDocument:
                     # Ajout du nom de fichier à la liste des fichiers compilés
                     if passe_compilation == 1:
                         pdf_compiled_path = build_dir_path / f"{fic['job_name']}.pdf"
-                        self._liste_fichiers["compiled"].append(pdf_compiled_path)
+                        self._liste_fichiers["compiled"].append(
+                            {
+                                "path": pdf_compiled_path,
+                                "nature_fichier": fic["nature_fichier"],
+                                "type_fichier": fic["type_fichier"],
+                            }
+                        )
 
                     # Affichage de la confirmation si nécessaire
                     if compilation_options["verbose"] in ["all"]:
@@ -2278,13 +2296,13 @@ class UPSTILatexDocument:
 
         # Copie des fichiers compilés
         if not compilation_options["dry_run"]:
-            for fichier_path in self._liste_fichiers.get("compiled", []):
+            for f in self._liste_fichiers.get("compiled", []):
                 try:
-                    shutil.copy(fichier_path, dest_folder)
+                    shutil.copy(f["path"], dest_folder)
                 except Exception as e:
                     messages.append(
                         [
-                            f"Erreur lors de la copie de {fichier_path.name} : {e}",
+                            f"Erreur lors de la copie de {f['path'].name} : {e}",
                             "warning",
                         ]
                     )
@@ -2309,7 +2327,7 @@ class UPSTILatexDocument:
                 ["Aucun fichier PDF compilé trouvé pour créer la miniature.", "warning"]
             ]
 
-        pdf_compiled_path = self._liste_fichiers["compiled"][0]
+        pdf_compiled_path = self._liste_fichiers["compiled"][0]["path"]
         if not pdf_compiled_path.exists():
             return None, [
                 [
@@ -2355,7 +2373,13 @@ class UPSTILatexDocument:
                 pdf_document.close()
 
                 # Ajouter la miniature à la liste des fichiers à uploader
-                self._liste_fichiers["autres"].append(thumbnail_path)
+                self._liste_fichiers["autres"].append(
+                    {
+                        "path": thumbnail_path,
+                        "nature_fichier": "standard",
+                        "type_fichier": "autre",
+                    }
+                )
 
             return str(thumbnail_path), []
 
@@ -2411,7 +2435,13 @@ class UPSTILatexDocument:
             except Exception as e:
                 return None, [[f"Erreur lors de la création du zip : {e}.", "warning"]]
 
-        self._liste_fichiers["telechargeables"].append(fichier_zip)
+        self._liste_fichiers["telechargeables"].append(
+            {
+                "path": fichier_zip,
+                "nature_fichier": "standard",
+                "type_fichier": "prof",
+            }
+        )
         return "success", []
 
     def _cp_create_info_file(
@@ -2449,7 +2479,13 @@ class UPSTILatexDocument:
                     and f.suffix in liste_extensions_diaporama
                 ]
                 for diaporama in fichiers_diaporama:
-                    self._liste_fichiers["telechargeables"].append(Path(diaporama))
+                    self._liste_fichiers["telechargeables"].append(
+                        {
+                            "path": Path(diaporama),
+                            "nature_fichier": "standard",
+                            "type_fichier": "prof",
+                        }
+                    )
 
         except Exception as e:
             messages.append(
@@ -2468,12 +2504,30 @@ class UPSTILatexDocument:
         else:
             local_path = self.file.parent
 
-        compiled_files = [str(f.name) for f in self._liste_fichiers.get("compiled", [])]
-        downloadable_files = [
-            str(f.name) for f in self._liste_fichiers.get("telechargeables", [])
+        compiled_files = [
+            {
+                "name": f["path"].name,
+                "nature_fichier": f["nature_fichier"],
+                "type_fichier": f["type_fichier"],
+            }
+            for f in self._liste_fichiers.get("compiled", [])
         ]
-        self._liste_fichiers["autres"].append(info_file)
-        other_files = [str(f.name) for f in self._liste_fichiers.get("autres", [])]
+        downloadable_files = [
+            {
+                "name": f["path"].name,
+                "nature_fichier": f["nature_fichier"],
+                "type_fichier": f["type_fichier"],
+            }
+            for f in self._liste_fichiers.get("telechargeables", [])
+        ]
+        self._liste_fichiers["autres"].append(
+            {
+                "path": info_file,
+                "nature_fichier": "standard",
+                "type_fichier": "autre",
+            }
+        )
+        other_files = [f["path"].name for f in self._liste_fichiers.get("autres", [])]
 
         # Ajout d'un hash pour la sécurité FTP
         import hashlib
@@ -2547,11 +2601,11 @@ class UPSTILatexDocument:
         is_local = cfg.ftp.mode_local
 
         # Liste des fichiers à uploader
-        liste_fichiers_a_uploader = (
-            self._liste_fichiers.get("compiled", [])
-            + self._liste_fichiers.get("telechargeables", [])
-            + self._liste_fichiers.get("autres", [])
-        )
+        liste_fichiers_a_uploader = [
+            f["path"]
+            for cat in ["compiled", "telechargeables", "autres"]
+            for f in self._liste_fichiers.get(cat, [])
+        ]
 
         if not is_local:
             user = cfg.ftp.user
