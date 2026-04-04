@@ -203,8 +203,12 @@ class HandlerPyUpstiLatexV2(DocumentPyUpstiLatexVersionHandler):
             # Écrire le nouveau contenu
             self.document.file.write(new_content)
 
-            # Invalider le cache
-            self.document._metadata = None
+            # Mettre à jour le cache en place (préserve initial_value)
+            if self.document._metadata is not None:
+                if key in self.document._metadata:
+                    self.document._metadata[key]["valeur"] = value
+                else:
+                    self.document._metadata = None
 
             errors.append([f"Métadonnée '{key}' ajoutée avec succès.", "info"])
             return True, errors
@@ -657,7 +661,12 @@ class HandlerLatexUPSTIDocument(DocumentLatexVersionHandler):
             self.document.file.write(new_content)
 
             # 5. Invalider le cache des métadonnées
-            self.document._metadata = None
+            # Mettre à jour le cache en place (préserve initial_value)
+            if self.document._metadata is not None:
+                if key in self.document._metadata:
+                    self.document._metadata[key]["valeur"] = value
+                else:
+                    self.document._metadata = None
 
             errors.append([message, "info"])
             return True, errors
