@@ -522,6 +522,7 @@ class SiteConfig:
     endpoint_get_config: str
     webhook_upload_url: str
     document_url_pattern: str
+    check_upload_url: str
 
     @classmethod
     def from_env(cls) -> "SiteConfig":
@@ -534,6 +535,7 @@ class SiteConfig:
             document_url_pattern=get_str(
                 "SITE_DOCUMENT_URL_PATTERN", "document_url_pattern"
             ),
+            check_upload_url=get_str("SITE_CHECK_UPLOAD_URL", "check_upload_url"),
         )
 
 

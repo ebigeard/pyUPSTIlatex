@@ -2729,7 +2729,57 @@ class UPSTILatexDocument:
                     )
                 return "warning", [[msg_webhook, "warning"]]
 
-        return "success", []
+            try:
+                response_data = response.json()
+            except Exception:
+                response_data = {}
+
+            if isinstance(response_data, list):
+                webhook_response = response_data[0] if response_data else {}
+            elif isinstance(response_data, dict):
+                webhook_response = response_data
+            else:
+                webhook_response = {}
+
+            action = webhook_response.get("action", "")
+            id_unique_response = webhook_response.get("id_unique", "")
+            url_pattern = cfg.site.document_url_pattern or ""
+            url_doc = url_pattern.replace("{id_unique}", str(id_unique_response))
+            url_check = cfg.site.check_upload_url
+
+            if action == "create":
+                return "success", [
+                    [
+                        f"Le document a bien été rajouté à la base de données. "
+                        f"Accéder au document : {url_doc}",
+                        "success",
+                    ]
+                ]
+            elif action == "update":
+                return "success", [
+                    [
+                        f"Le document a bien été mis à jour dans la base de données. "
+                        f"Accéder au document : {url_doc}",
+                        "success",
+                    ]
+                ]
+            elif action == "to_check":
+                return "warning", [
+                    [
+                        f"Le système a détecté un doublon possible. "
+                        f"Il faut le vérifier manuellement : {url_check}",
+                        "warning",
+                    ]
+                ]
+
+            else:
+                return "warning", [
+                    [
+                        "Quelque chose d'étrange s'est passé lors de l'appel au "
+                        "webhook.",
+                        "warning",
+                    ]
+                ]
 
     def _cp_clean_temp_after_compilation(
         self, compilation_options: dict

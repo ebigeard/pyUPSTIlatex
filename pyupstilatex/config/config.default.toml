@@ -121,6 +121,7 @@ mode_local_dossier = "C:/tmp"                   # Si mode_local = true, les fich
 endpoint_get_config = "https://s2i.bigeard.me/api/endpoint/pyUPSTIlatex.json"       # URL de l'endpoint pour récupérer la configuration pyUPSTIlatex.json (variantes, matières, classes, types de documents, etc.)
 webhook_upload_url = "https://votre-site.com/webhook/upload"                        # URL du webhook à appeler après l'upload d'un document pour informer le site de la disponibilité du document (doit accepter une requête POST avec les infos du document en JSON)   
 document_url_pattern = "https://votre-site.com/document/{id_unique}"                # Pattern pour générer l'URL d'accès à un document sur le site à partir de son id unique (ex: "https://votre-site.com/document/{id_unique}")
+check_upload_url = "https://votre-site.com/api/check-upload"                        # URL de la page utilisée pour vérifier les uploads de document sur le site
 
 #--------------------------------------------------------------------------------------
 # Configuration pour compatibilité avec anciennes versions
