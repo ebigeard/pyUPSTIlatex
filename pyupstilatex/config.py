@@ -313,6 +313,7 @@ class CompilationConfig:
     query_webhook_apres_upload: bool
     upload_diaporama: bool
     dossier_ftp: str
+    compilation_paralleles: int
 
     # Paramètres de compilation LaTeX
     latex_nombre_compilations: int
@@ -354,6 +355,9 @@ class CompilationConfig:
             hauteur_miniature=get_int("COMPILATION_DEFAUT_HAUTEUR_MINIATURE", 600),
             upload_diaporama=get_bool("COMPILATION_DEFAUT_UPLOAD_DIAPORAMA", True),
             dossier_ftp=get_str("COMPILATION_DEFAUT_DOSSIER_FTP", "/"),
+            compilation_paralleles=get_int(
+                "COMPILATION_DEFAUT_COMPILATION_PARALLELES", 4
+            ),
             # Paramètres de compilation LaTeX
             latex_nombre_compilations=get_int(
                 "COMPILATION_LATEX_NOMBRE_COMPILATIONS", 2

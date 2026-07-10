@@ -1,4 +1,5 @@
 import logging
+import sys
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
@@ -385,6 +386,23 @@ class MessageHandler:
     def separateur3(self):
         self.msg("separateur3", "")
 
+    def progress(self, texte: str, finalize: bool = False):
+        """Affiche une ligne de progression dynamique, écrasée à chaque appel.
+
+        Paramètres
+        ----------
+        texte : str
+            Texte de progression à afficher.
+        finalize : bool, optional
+            Si True, termine la ligne par un saut de ligne au lieu de
+            l'écraser au prochain appel. Défaut : False.
+        """
+        if not self.verbose:
+            return
+        fin = "\n" if finalize else ""
+        sys.stderr.write(f"\r{texte}\033[K{fin}")
+        sys.stderr.flush()
+
     def affiche_messages(
         self, messages: list[object], type: str = "info", format_last: bool = True
     ):
@@ -464,6 +482,9 @@ class NoOpMessageHandler:
         pass
 
     def separateur3(self):
+        pass
+
+    def progress(self, texte: str, finalize: bool = False):
         pass
 
     def affiche_messages(
