@@ -1,6 +1,6 @@
 {
-  "version": "0.5.36",
-  "date": "04/06/2026",
+  "version": "0.5.46",
+  "date": "30/08/2026",
   "description": "Dictionnaires et paramètres pour pyUPSTIlatex",
   "author": "Emmanuel Bigeard",
   "mail": "s2i@bigeard.me",
@@ -83,7 +83,7 @@
     "formulaire": {
       "nom": "Formulaire",
       "slug": "formulaire",
-      "affichage": "",
+      "affichage": "Form.",
       "initiales": "fo",
       "id_upsti_document": 9,
       "parametres": {
@@ -96,7 +96,7 @@
     "fiche_synthese": {
       "nom": "Fiche Synthèse",
       "slug": "fiche_synthese",
-      "affichage": "Synthèse",
+      "affichage": "Synth.",
       "initiales": "fs",
       "id_upsti_document": 8,
       "parametres": {
@@ -109,7 +109,7 @@
     "fiche_methode": {
       "nom": "Fiche Méthode",
       "slug": "fiche_methode",
-      "affichage": "Méthode",
+      "affichage": "Méth.",
       "initiales": "fm",
       "id_upsti_document": 7,
       "parametres": {
@@ -237,7 +237,7 @@
     "programme_colle": {
       "nom": "Programme de colle",
       "slug": "programme_colle",
-      "affichage": "",
+      "affichage": "P.KH",
       "initiales": "pkh",
       "id_upsti_document": 15,
       "parametres": {}
@@ -570,6 +570,13 @@
       "domaine": null,
       "alternatives": "programmation,écriture de code,python"
     },
+    "codage-de-l-information": {
+      "nom": "Codage de l'information",
+      "slug": "codage-de-l-information",
+      "thematique": "chaine-d-information",
+      "domaine": null,
+      "alternatives": "Binaire, Gray"
+    },
     "concentration-de-contrainte": {
       "nom": "Concentration de contrainte",
       "slug": "concentration-de-contrainte",
@@ -597,6 +604,34 @@
       "thematique": "slci",
       "domaine": null,
       "alternatives": "Correcteur proportionnel intégral, correcteur intégral"
+    },
+    "cotation-gps": {
+      "nom": "Cotation GPS",
+      "slug": "cotation-gps",
+      "thematique": "specification-et-controle-des-produits",
+      "domaine": null,
+      "alternatives": "Spécification géométrique"
+    },
+    "couple-thermique-equivalent": {
+      "nom": "Couple thermique équivalent",
+      "slug": "couple-thermique-equivalent",
+      "thematique": "conversion-electromecanique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "derivation-numerique": {
+      "nom": "Dérivation numérique",
+      "slug": "derivation-numerique",
+      "thematique": "ingenierie-numerique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "dessin": {
+      "nom": "Dessin",
+      "slug": "dessin",
+      "thematique": "representation-graphique-du-reel",
+      "domaine": null,
+      "alternatives": "dessin en projection"
     },
     "deuxieme-ordre": {
       "nom": "Deuxième ordre",
@@ -731,6 +766,13 @@
       "domaine": null,
       "alternatives": "Graphe de structure"
     },
+    "hacheur": {
+      "nom": "Hacheur",
+      "slug": "hacheur",
+      "thematique": "modulation-de-l-energie-electrique",
+      "domaine": null,
+      "alternatives": null
+    },
     "hyperstatisme": {
       "nom": "Hyperstatisme",
       "slug": "hyperstatisme",
@@ -759,6 +801,13 @@
       "domaine": null,
       "alternatives": "Masse équivalente"
     },
+    "integration-numerique": {
+      "nom": "Intégration numérique",
+      "slug": "integration-numerique",
+      "thematique": "ingenierie-numerique",
+      "domaine": null,
+      "alternatives": null
+    },
     "laplace": {
       "nom": "Laplace",
       "slug": "laplace",
@@ -773,10 +822,31 @@
       "domaine": null,
       "alternatives": null
     },
+    "liaison-encastrement": {
+      "nom": "Liaison encastrement",
+      "slug": "liaison-encastrement",
+      "thematique": "liaisons-mecaniques",
+      "domaine": null,
+      "alternatives": null
+    },
     "liaison-equivalente": {
       "nom": "Liaison équivalente",
       "slug": "liaison-equivalente",
       "thematique": "modelisation-geometrique-des-systemes-de-solides",
+      "domaine": null,
+      "alternatives": null
+    },
+    "liaison-glissiere": {
+      "nom": "Liaison glissière",
+      "slug": "liaison-glissiere",
+      "thematique": "liaisons-mecaniques",
+      "domaine": null,
+      "alternatives": null
+    },
+    "liaison-pivot": {
+      "nom": "Liaison privot",
+      "slug": "liaison-pivot",
+      "thematique": "liaisons-mecaniques",
       "domaine": null,
       "alternatives": null
     },
@@ -787,12 +857,40 @@
       "domaine": null,
       "alternatives": "Loi de vitesse en trapèze"
     },
+    "machine-a-courant-continu": {
+      "nom": "Machine à Courant Continu",
+      "slug": "machine-a-courant-continu",
+      "thematique": "conversion-electromecanique",
+      "domaine": null,
+      "alternatives": "MCC,moteur à courant continu, machine cc"
+    },
+    "machine-asynchrone": {
+      "nom": "Machine Asynchrone",
+      "slug": "machine-asynchrone",
+      "thematique": "conversion-electromecanique",
+      "domaine": null,
+      "alternatives": "MAS,moteur synchrone"
+    },
+    "machine-synchrone": {
+      "nom": "Machine Synchrone",
+      "slug": "machine-synchrone",
+      "thematique": "conversion-electromecanique",
+      "domaine": null,
+      "alternatives": "MS,moteur synchrone"
+    },
     "matrice-inertie": {
       "nom": "Matrice d'Inertie",
       "slug": "matrice-inertie",
       "thematique": "dynamique",
       "domaine": null,
       "alternatives": "Opérateur d'Inertie"
+    },
+    "methode-ashby": {
+      "nom": "Méthode d'Ashby",
+      "slug": "methode-ashby",
+      "thematique": "ppm",
+      "domaine": null,
+      "alternatives": null
     },
     "modele-de-hertz": {
       "nom": "Modèle de Hertz",
@@ -807,6 +905,20 @@
       "thematique": "modelisation-des-actions-mecaniques",
       "domaine": null,
       "alternatives": null
+    },
+    "onduleur": {
+      "nom": "Onduleur",
+      "slug": "onduleur",
+      "thematique": "modulation-de-l-energie-electrique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "paliers-lisses": {
+      "nom": "Paliers lisses",
+      "slug": "paliers-lisses",
+      "thematique": "liaisons-mecaniques",
+      "domaine": null,
+      "alternatives": "coussinets"
     },
     "pfd": {
       "nom": "PFD",
@@ -850,10 +962,38 @@
       "domaine": null,
       "alternatives": null
     },
+    "redresseur": {
+      "nom": "Redresseur",
+      "slug": "redresseur",
+      "thematique": "modulation-de-l-energie-electrique",
+      "domaine": null,
+      "alternatives": null
+    },
     "rendement": {
       "nom": "Rendement",
       "slug": "rendement",
       "thematique": "energetique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "resolution-numerique-equa-diff": {
+      "nom": "Résolution numérique d'équa-diff",
+      "slug": "resolution-numerique-equa-diff",
+      "thematique": "ingenierie-numerique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "resolution-numerique-fx-0": {
+      "nom": "Résolution numérique de f(x)=0",
+      "slug": "resolution-numerique-fx-0",
+      "thematique": "ingenierie-numerique",
+      "domaine": null,
+      "alternatives": null
+    },
+    "resolution-numerique-systeme-lineaire": {
+      "nom": "Résolution numérique de système linéaire",
+      "slug": "resolution-numerique-systeme-lineaire",
+      "thematique": "ingenierie-numerique",
       "domaine": null,
       "alternatives": null
     },
@@ -862,6 +1002,13 @@
       "slug": "rsg",
       "thematique": null,
       "domaine": "meca",
+      "alternatives": null
+    },
+    "roulements": {
+      "nom": "Roulements",
+      "slug": "roulements",
+      "thematique": "liaisons-mecaniques",
+      "domaine": null,
       "alternatives": null
     },
     "schema-cinematique": {
@@ -955,6 +1102,20 @@
       "domaine": null,
       "alternatives": null
     },
+    "train-epi": {
+      "nom": "Train épicycloïdal",
+      "slug": "train-epi",
+      "thematique": "transmission-de-puissance",
+      "domaine": null,
+      "alternatives": null
+    },
+    "traitement-numerique-donnees": {
+      "nom": "Traitement numérique de données",
+      "slug": "traitement-numerique-donnees",
+      "thematique": "ingenierie-numerique",
+      "domaine": null,
+      "alternatives": null
+    },
     "tvf": {
       "nom": "TVF",
       "slug": "tvf",
@@ -982,253 +1143,302 @@
       "nom": "Actions mécaniques",
       "slug": "actions-mecaniques",
       "code": "am",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "modelisation-des-actions-mecaniques": {
       "nom": "Modélisation des actions mécaniques",
       "slug": "modelisation-des-actions-mecaniques",
       "code": "mam",
-      "parent": "actions-mecaniques"
+      "parent": "actions-mecaniques",
+      "alternatives": null
     },
     "principe-fondamental-de-la-statique": {
       "nom": "Principe Fondamental de la Statique",
       "slug": "principe-fondamental-de-la-statique",
       "code": "pfs",
-      "parent": "actions-mecaniques"
+      "parent": "actions-mecaniques",
+      "alternatives": "pfs"
     },
     "statique-graphique": {
       "nom": "Statique graphique",
       "slug": "statique-graphique",
       "code": "pfsgr",
-      "parent": "actions-mecaniques"
+      "parent": "actions-mecaniques",
+      "alternatives": null
     },
     "analyse-et-modelisation-des-mecanismes": {
       "nom": "Analyse et modélisation des mécanismes",
       "slug": "analyse-et-modelisation-des-mecanismes",
       "code": "amm",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
-    "outils-mathematiques": {
-      "nom": "Outils mathématiques",
-      "slug": "outils-mathematiques",
-      "code": "om",
-      "parent": "analyse-et-modelisation-des-mecanismes"
+    "liaisons-equivalentes": {
+      "nom": "Liaisons équivalentes",
+      "slug": "liaisons-equivalentes",
+      "code": "leq",
+      "parent": "analyse-et-modelisation-des-mecanismes",
+      "alternatives": null
     },
     "modelisation-geometrique-des-systemes-de-solides": {
       "nom": "Modélisation géométrique des systèmes de solides",
       "slug": "modelisation-geometrique-des-systemes-de-solides",
       "code": "mgss",
-      "parent": "analyse-et-modelisation-des-mecanismes"
+      "parent": "analyse-et-modelisation-des-mecanismes",
+      "alternatives": null
+    },
+    "outils-mathematiques": {
+      "nom": "Outils mathématiques",
+      "slug": "outils-mathematiques",
+      "code": "om",
+      "parent": "analyse-et-modelisation-des-mecanismes",
+      "alternatives": null
     },
     "theorie-des-mecanismes": {
       "nom": "Théorie des mécanismes",
       "slug": "theorie-des-mecanismes",
       "code": "tdm",
-      "parent": "analyse-et-modelisation-des-mecanismes"
+      "parent": "analyse-et-modelisation-des-mecanismes",
+      "alternatives": null
     },
     "analyse-et-modelisation-des-systemes": {
       "nom": "Analyse et modélisation des systèmes",
       "slug": "analyse-et-modelisation-des-systemes",
       "code": "ams",
-      "parent": null
+      "parent": null,
+      "alternatives": "sysml"
     },
     "autres": {
       "nom": "Autres",
       "slug": "autres",
       "code": "aut",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "chaine-d-information": {
       "nom": "Chaîne d'information",
       "slug": "chaine-d-information",
       "code": "CI",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "reseaux": {
       "nom": "Réseaux",
       "slug": "reseaux",
       "code": "res",
-      "parent": "chaine-d-information"
+      "parent": "chaine-d-information",
+      "alternatives": null
     },
     "systemes-a-evenements-discrets": {
       "nom": "Systèmes à évènements discrets",
       "slug": "systemes-a-evenements-discrets",
       "code": "sed",
-      "parent": "chaine-d-information"
+      "parent": "chaine-d-information",
+      "alternatives": null
     },
     "cinematique": {
       "nom": "Cinématique",
       "slug": "cinematique",
       "code": "cin",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "cinematique-du-solide": {
       "nom": "Cinématique du solide",
       "slug": "cinematique-du-solide",
       "code": "cins",
-      "parent": "cinematique"
+      "parent": "cinematique",
+      "alternatives": null
     },
     "cinematique-graphique": {
       "nom": "Cinématique graphique",
       "slug": "cinematique-graphique",
       "code": "cingr",
-      "parent": "cinematique"
+      "parent": "cinematique",
+      "alternatives": null
     },
     "dynamique": {
       "nom": "Dynamique",
       "slug": "dynamique",
       "code": "dyn",
-      "parent": null
-    },
-    "principe-fondamental-de-la-dynamique": {
-      "nom": "Principe Fondamental de la Dynamique",
-      "slug": "principe-fondamental-de-la-dynamique",
-      "code": "pfd",
-      "parent": "dynamique"
+      "parent": null,
+      "alternatives": null
     },
     "energetique": {
       "nom": "Méthodes énergétiques",
       "slug": "energetique",
       "code": "ene",
-      "parent": "dynamique"
+      "parent": "dynamique",
+      "alternatives": null
+    },
+    "principe-fondamental-de-la-dynamique": {
+      "nom": "Principe Fondamental de la Dynamique",
+      "slug": "principe-fondamental-de-la-dynamique",
+      "code": "pfd",
+      "parent": "dynamique",
+      "alternatives": "pfd"
     },
     "genie-electrique": {
       "nom": "Génie électrique",
       "slug": "genie-electrique",
       "code": "elec",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "conversion-electromecanique": {
       "nom": "Conversion électromécanique",
       "slug": "conversion-electromecanique",
       "code": "celm",
-      "parent": "genie-electrique"
+      "parent": "genie-electrique",
+      "alternatives": "moteurs electriques, machines tournantes"
     },
     "modulation-de-l-energie-electrique": {
       "nom": "Modulation de l'énergie électrique",
       "slug": "modulation-de-l-energie-electrique",
       "code": "mee",
-      "parent": "genie-electrique"
+      "parent": "genie-electrique",
+      "alternatives": "convertisseurs statiques"
     },
     "sources-et-circuits-electriques": {
       "nom": "Sources et circuits électriques",
       "slug": "sources-et-circuits-electriques",
       "code": "sce",
-      "parent": "genie-electrique"
+      "parent": "genie-electrique",
+      "alternatives": null
     },
     "informatique": {
       "nom": "Informatique",
       "slug": "informatique",
       "code": "info",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "ingenierie-numerique": {
       "nom": "Ingénierie numérique",
       "slug": "ingenierie-numerique",
       "code": "inum",
-      "parent": "informatique"
+      "parent": "informatique",
+      "alternatives": null
     },
     "intelligence-artificielle": {
       "nom": "Intelligence artificielle",
       "slug": "intelligence-artificielle",
       "code": "ia",
-      "parent": "informatique"
+      "parent": "informatique",
+      "alternatives": "ia"
     },
     "slci": {
       "nom": "SLCI",
       "slug": "slci",
       "code": "slci",
-      "parent": null
+      "parent": null,
+      "alternatives": "asservissements"
     },
     "analyse-des-slci": {
       "nom": "Analyse des SLCI",
       "slug": "analyse-des-slci",
       "code": "aslci",
-      "parent": "slci"
+      "parent": "slci",
+      "alternatives": null
     },
     "analyse-harmonique-des-slci": {
       "nom": "Analyse harmonique des SLCI",
       "slug": "analyse-harmonique-des-slci",
       "code": "ahslci",
-      "parent": "slci"
+      "parent": "slci",
+      "alternatives": "fréquentiel"
     },
     "correction-des-slci": {
       "nom": "Correction des SLCI",
       "slug": "correction-des-slci",
       "code": "cslci",
-      "parent": "slci"
+      "parent": "slci",
+      "alternatives": "correcteurs"
     },
     "modelisation-des-slci": {
       "nom": "Modélisation des SLCI",
       "slug": "modelisation-des-slci",
       "code": "mslci",
-      "parent": "slci"
+      "parent": "slci",
+      "alternatives": null
     },
     "solides-deformables": {
       "nom": "Solides déformables",
       "slug": "solides-deformables",
       "code": "sd",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "resistance-des-materiaux": {
       "nom": "Résistance des matériaux",
       "slug": "resistance-des-materiaux",
       "code": "rdm",
-      "parent": "solides-deformables"
+      "parent": "solides-deformables",
+      "alternatives": "rdm"
     },
     "theorie-de-hertz": {
       "nom": "Théorie de Hertz",
       "slug": "theorie-de-hertz",
       "code": "thz",
-      "parent": "solides-deformables"
+      "parent": "solides-deformables",
+      "alternatives": null
     },
     "technologie": {
       "nom": "Technologie",
       "slug": "technologie",
       "code": "tec",
-      "parent": null
+      "parent": null,
+      "alternatives": null
     },
     "conception-mecanique": {
       "nom": "Conception mécanique",
       "slug": "conception-mecanique",
       "code": "cst",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": "construction mécanique"
     },
     "divers": {
       "nom": "Divers",
       "slug": "divers",
       "code": "div",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": null
     },
     "liaisons-mecaniques": {
       "nom": "Liaisons mécaniques",
       "slug": "liaisons-mecaniques",
       "code": "lm",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": null
     },
     "ppm": {
       "nom": "Relation Produit-Matériaux-Procédés",
       "slug": "ppm",
       "code": "ppm",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": "fabrication, usinage"
     },
     "representation-graphique-du-reel": {
       "nom": "Représentation graphique du réel",
       "slug": "representation-graphique-du-reel",
       "code": "rgr",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": "dessin technique, dessin industriel"
     },
     "specification-et-controle-des-produits": {
       "nom": "Spécification et contrôle des produits",
       "slug": "specification-et-controle-des-produits",
       "code": "scp",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": null
     },
     "transmission-de-puissance": {
       "nom": "Transmission de puissance",
       "slug": "transmission-de-puissance",
       "code": "tdp",
-      "parent": "technologie"
+      "parent": "technologie",
+      "alternatives": "transmetteurs"
     }
   },
   "macro_competence": {
@@ -1687,7 +1897,7 @@
     },
     "adapte_pour": {
       "label": "Adapté pour",
-      "description": "`adapte_pour`: niveaux de classe pour qui l'activité du document peut aussi être adapté.\n\r\n\n\r\n```\n\r\nadapte_pour: adapte_pour: [\"MP\", \"PSI\", \"PT\", \"TSI2\"]\n\r\n```\n\r\n\n\r\n- **valeurs possibles :** liste de noms de niveaux de classe définis dans `pyUPSTIlatex.json` (clé: `classe`, champ `niveau`). La première valeur est le niveau de classe pour lequel le document est initialement conçu.\n\r\n\n\r\n- **si absent des métadonnées :** ignoré (le niveau pour lequel le document est initialement conçu sera le niveau associé à la classe nécessairement définie dans les métadonnées)",
+      "description": "`adapte_pour`: niveaux de classe pour qui l'activité du document peut aussi être adapté.\r\n\r\n\r\n\r\n```\r\n\r\nadapte_pour: adapte_pour: [\"MP\", \"PSI\", \"PT\", \"TSI2\"]\r\n\r\n```\r\n\r\n\r\n\r\n- **valeurs possibles :** liste de noms de niveaux de classe définis dans `pyUPSTIlatex.json` (clé: `classe`, champ `niveau`), par ordre d'adaptation décroissante.\r\n\r\n\r\n\r\n- **si absent des métadonnées :** ignoré (le niveau pour lequel le document est initialement conçu sera le niveau associé à la classe nécessairement définie dans les métadonnées)",
       "parametres": {
         "accepted_types": [
           "list"
@@ -2905,7 +3115,7 @@
           "parent": "G2"
         },
         "G2-03": {
-          "intitule": "Présenter de manière argumentée une synthèse des\r\nrésultats.",
+          "intitule": "Présenter de manière argumentée une synthèse des\nrésultats.",
           "semestre": "S2",
           "couleur": "#ffcccc",
           "parent": "G2"
@@ -8447,8 +8657,8 @@
           "parent": "A2"
         },
         "A2-02": {
-          "intitule": "Définir les éléments influents du milieu extérieur. ",
-          "semestre": "",
+          "intitule": "Définir les éléments influents du milieu extérieur.",
+          "semestre": "S2",
           "couleur": "#b1cdfc",
           "parent": "A2"
         },
