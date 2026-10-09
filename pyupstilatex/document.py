@@ -1,6 +1,9 @@
+import concurrent.futures
 import glob
 import inspect
 import shutil
+import subprocess
+import threading
 import time
 import zipfile
 from dataclasses import dataclass, field
@@ -335,6 +338,7 @@ class UPSTILatexDocument:
         mode: str = "normal",
         verbose: str = "normal",
         dry_run: bool = False,
+        force: bool = False,
         override_compilation_params: Optional[Dict] = None,
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le document LaTeX.
@@ -356,6 +360,9 @@ class UPSTILatexDocument:
         dry_run : bool, optional
             Si True, exécute un "dry run" où les actions sont affichées sans être
             réellement effectuées.
+        force : bool, optional
+            Si True, force la (re)compilation de toutes les versions même si
+            leur PDF de destination existe déjà et est à jour. Défaut : False.
         override_compilation_params : Optional[Dict], optional
             Dictionnaire de paramètres de compilation à forcer. Ces paramètres
             écrasent tous les autres (cfg + fichier local). Défaut : None.
@@ -380,6 +387,7 @@ class UPSTILatexDocument:
             "mode": mode if mode in valid_modes else "normal",
             "verbose": verbose if verbose in valid_verbose else "normal",
             "dry_run": dry_run,
+            "force": force,
         }
 
         # Initialisation du statut global
@@ -1879,6 +1887,10 @@ class UPSTILatexDocument:
     ) -> tuple[Optional[Dict], List[List[str]]]:
         """Compile le fichier LaTeX (méthode interne).
 
+        Orchestre la préparation de la compilation, la détermination des
+        versions à compiler, la compilation effective de chaque version puis
+        la vérification du résultat global.
+
         Retourne
         --------
         tuple[Optional[Dict], List[List[str]]]
@@ -1891,29 +1903,49 @@ class UPSTILatexDocument:
                 "Préparation de la compilation (environnement et fichiers à compiler)"
             )
 
-        import subprocess
+        resultat_preparation, messages_preparation = self._cp_preparer_compilation(
+            compilation_options
+        )
+        if resultat_preparation is None:
+            return None, messages_preparation
 
-        liste_fichiers_a_compiler: List[Dict[str]] = [
-            {"nom": self.file.stem, "suffixe_affichage": ""}
-        ]
-        compilation_job_list: List[Dict] = []
-        messages: List[List[str]] = []
+        compilation_job_list, messages_versions = (
+            self._cp_determiner_versions_a_compiler(compilation_options)
+        )
+        
+        # Afficher le nombre de versions à compiler
+        if compilation_options["verbose"] in ["normal", "all"]:
+            self.msg.info(
+                f"Nombre de versions à compiler : {len(compilation_job_list)}"
+            )
 
-        # Récupération de la config et des paramètres de compilation
+        messages = messages_preparation + messages_versions
+        if compilation_options["verbose"] in ["all"] and len(messages) == 0:
+            messages.append(["OK !", "success"])
+        self.msg.affiche_messages(messages, "resultat_item")
+
+        self._cp_compiler_versions(compilation_options, compilation_job_list)
+
+        return self._cp_post_compilation(compilation_job_list)
+
+    def _cp_preparer_compilation(
+        self, compilation_options: dict
+    ) -> tuple[Optional[str], List[List[str]]]:
+        """Prépare l'environnement de compilation (méthode interne).
+
+        Vérifie l'installation du compilateur LaTeX et crée le dossier de
+        build si nécessaire.
+
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            ("success", []) si la préparation a réussi, ou (None, messages) en
+            cas d'erreur fatale (compilateur introuvable).
+        """
         cfg = load_config()
-
-        versions_a_compiler = self._compilation_parameters.get(
-            "versions_a_compiler", []
-        )
-        versions_accessibles_a_compiler = self._compilation_parameters.get(
-            "versions_accessibles_a_compiler", []
-        )
-        est_un_document_a_trous = self._compilation_parameters.get(
-            "est_un_document_a_trous", False
-        )
+        compilateur = cfg.compilation.latex_compilateur
 
         # Test de l'installation du compilateur
-        compilateur = cfg.compilation.latex_compilateur
         try:
             subprocess.run(
                 [compilateur, "--version"],
@@ -1925,6 +1957,44 @@ class UPSTILatexDocument:
             return None, [
                 [f"{compilateur} n'est pas installé ou introuvable.", "fatal_error"]
             ]
+
+        # Créer le dossier build s'il n'existe pas (pdflatex lève une erreur
+        # sur Linux/macOS si le dossier de sortie est absent)
+        if not compilation_options["dry_run"]:
+            build_dir_path_init = self.file.parent / cfg.os.dossier_latex_build
+            build_dir_path_init.mkdir(parents=True, exist_ok=True)
+
+        return "success", []
+
+    def _cp_determiner_versions_a_compiler(
+        self, compilation_options: dict
+    ) -> tuple[List[Dict], List[List[str]]]:
+        """Détermine la liste des versions à compiler (méthode interne).
+
+        Crée d'abord les fichiers .tex des versions accessibles, puis
+        construit la liste des tâches de compilation (élève, à trous,
+        accessibles, prof).
+
+        Retourne
+        --------
+        tuple[List[Dict], List[List[str]]]
+            (compilation_job_list, messages)
+        """
+        cfg = load_config()
+        messages: List[List[str]] = []
+        compilation_job_list: List[Dict] = []
+
+        versions_a_compiler = self._compilation_parameters.get(
+            "versions_a_compiler", []
+        )
+        versions_accessibles_a_compiler = self._compilation_parameters.get(
+            "versions_accessibles_a_compiler", []
+        )
+        est_un_document_a_trous = self._compilation_parameters.get(
+            "est_un_document_a_trous", False
+        )
+
+        fichier_principal = {"nom": self.file.stem, "suffixe_affichage": ""}
 
         # Il faut d'abord créer les sources tex des fichiers accessibles
         fichiers_accessibles: List[Dict] = []
@@ -1940,11 +2010,6 @@ class UPSTILatexDocument:
 
         # Création de la liste des tâches de compilation
         if "eleve" in versions_a_compiler:
-            # === Compilation du fichier principal ===
-            fichier_principal = liste_fichiers_a_compiler[
-                0
-            ]  # {"nom": self.file.stem, "suffixe_affichage": ""}
-
             if est_un_document_a_trous:
                 # Version à publier (fichier principal uniquement)
                 compilation_job_list.append(
@@ -2034,182 +2099,282 @@ class UPSTILatexDocument:
                 }
             )
 
-        # Fin de la préparation des tâches de compilation
-        if compilation_options["verbose"] in ["all"] and len(messages) == 0:
-            messages.append(["OK !", "success"])
-        self.msg.affiche_messages(messages, "resultat_item")
+        # Détermine, pour chaque tâche, si une (re)compilation est nécessaire :
+        # pas besoin si le PDF de destination existe déjà et est plus récent
+        # que le fichier .tex source (sauf si l'option --force est utilisée).
+        force = compilation_options.get("force", False)
+        build_dir_path = self.file.parent / cfg.os.dossier_latex_build
+        for job in compilation_job_list:
+            if force:
+                job["a_compiler"] = True
+                continue
 
-        # Compilation des différents fichiers
+            fichier_tex_path = self.file.parent / f"{job['fichier_tex']}.tex"
+            fichier_destination = build_dir_path / f"{job['job_name']}.pdf"
+
+            if not fichier_destination.exists():
+                job["a_compiler"] = True
+            elif fichier_tex_path.exists():
+                # On compare les dates de modification pour savoir si on doit recompiler
+                job["a_compiler"] = (
+                    fichier_destination.stat().st_mtime
+                    < fichier_tex_path.stat().st_mtime
+                )
+            else:
+                # Source introuvable : on compile
+                job["a_compiler"] = True
+
+        return compilation_job_list, messages
+
+    def _cp_compiler_versions(
+        self, compilation_options: dict, compilation_job_list: List[Dict]
+    ) -> None:
+        """Compile en parallèle les différentes versions du document (méthode interne).
+
+        Lance la compilation (et la passe bibtex si nécessaire) de chaque
+        tâche de `compilation_job_list` dans un thread séparé, affiche
+        l'avancée de façon dynamique, puis alimente
+        `self._liste_fichiers["compiled"]` en conservant l'ordre d'origine
+        des tâches (le premier élément doit rester la version principale).
+        """
+        cfg = load_config()
         nombre_compilations = cfg.compilation.latex_nombre_compilations
         compilateur = cfg.compilation.latex_compilateur
         build_dir = cfg.os.dossier_latex_build
         output_dir = self.file.parent
-
-        # Créer le dossier build s'il n'existe pas (pdflatex lève une erreur
-        # sur Linux/macOS si le dossier de sortie est absent)
-        if not compilation_options["dry_run"]:
-            build_dir_path_init = output_dir / build_dir
-            build_dir_path_init.mkdir(parents=True, exist_ok=True)
 
         # Pour savoir si on doit faire une compilation bibtex
         has_bibliographie = bool(
             self._metadata.get("bibliographie", {}).get("valeur", [])
         )
 
-        compilation_messages: List[List[str]] = []
-        for i, fic in enumerate(compilation_job_list):
+        nb_jobs = len(compilation_job_list)
+        etat_jobs = ["en attente"] * nb_jobs
+        progress_lock = threading.Lock()
+        afficher_progression = compilation_options["verbose"] in ["normal", "all"]
 
-            # Dossiers de sorties
-            nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
-            build_dir_path = output_dir / build_dir
+        def afficher_avancee(finalize: bool = False):
+            if not afficher_progression:
+                return
+            nb_termines = sum(1 for etat in etat_jobs if etat == "terminé")
+            en_cours = [
+                compilation_job_list[i]["affichage_nom_version"]
+                for i, etat in enumerate(etat_jobs)
+                if etat == "en cours"
+            ]
+            texte = f"Compilation : {nb_termines}/{nb_jobs} versions traitées"
+            if en_cours:
+                texte += f" (en cours : {', '.join(en_cours)})"
+            self.msg.progress(texte, finalize=finalize)
 
-            # Pour savoir si on doit faire une compilation bibtex
-            compile_bibtex = (
-                has_bibliographie
-                and i == 0
-                and compilation_options.get("mode") == "deep"
+        def compiler_une_version(index: int, fic: Dict) -> Dict:
+            with progress_lock:
+                etat_jobs[index] = "en cours"
+                afficher_avancee()
+            resultat = self._cp_compiler_une_version(
+                fic,
+                index=index,
+                compilation_options=compilation_options,
+                compilateur=compilateur,
+                build_dir=build_dir,
+                output_dir=output_dir,
+                nombre_compilations=nombre_compilations,
+                has_bibliographie=has_bibliographie,
             )
-            nombre_compilations_corrige = (
-                nombre_compilations + 2
-                if (compile_bibtex and i == 0)
-                else nombre_compilations
-            )
+            with progress_lock:
+                etat_jobs[index] = "terminé"
+                afficher_avancee()
+            return resultat
 
-            # Démarrage de la compilation
-            compilation_OK: bool = True
-            passe_compilation = 1
-            while compilation_OK and passe_compilation <= nombre_compilations_corrige:
-
-                # Affichage de la passe de compilation
-                affiche_passe = (
-                    passe_compilation - 1
-                    if compile_bibtex and passe_compilation > 2
-                    else passe_compilation
+        afficher_avancee()
+        nb_workers = min(nb_jobs, max(cfg.compilation.compilation_paralleles, 1)) or 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=nb_workers) as executor:
+            resultats = list(
+                executor.map(
+                    lambda item: compiler_une_version(*item),
+                    enumerate(compilation_job_list),
                 )
-                if compilation_options["verbose"] in ["normal", "all"]:
-                    if compile_bibtex and passe_compilation == 2:
-                        affichage_nom_fichier_dans_message = (
-                            "Compilation de la bibliographie (passe bibtex)"
-                        )
-                    else:
-                        affichage_nom_fichier_dans_message = (
-                            f"Compilation de la version {fic['affichage_nom_version']}"
-                        )
-                        if nombre_compilations > 1:
-                            affichage_nom_fichier_dans_message += (
-                                f" (passe n°{affiche_passe})"
-                            )
-                    self.msg.info(affichage_nom_fichier_dans_message)
+            )
+        afficher_avancee(finalize=True)
 
-                if compile_bibtex and passe_compilation == 2:
-                    cwd_dir = build_dir_path
-                    command = [
-                        "bibtex",
-                        "-quiet",
-                        nom_fichier_tex_path.stem,
+        # On respecte l'ordre d'origine des tâches pour les fichiers compilés
+        # (le premier élément doit rester la version principale du document)
+        compilation_messages: List[List[str]] = []
+        for resultat in resultats:
+            if resultat["compiled_entry"] is not None:
+                self._liste_fichiers["compiled"].append(resultat["compiled_entry"])
+            compilation_messages.extend(resultat["messages"])
+
+        if compilation_messages:
+            self.msg.affiche_messages(compilation_messages, "resultat_item")
+
+    def _cp_compiler_une_version(
+        self,
+        fic: Dict,
+        *,
+        index: int,
+        compilation_options: dict,
+        compilateur: str,
+        build_dir: str,
+        output_dir: Path,
+        nombre_compilations: int,
+        has_bibliographie: bool,
+    ) -> Dict:
+        """Compile une version du document, passe après passe (méthode interne).
+
+        Appelée dans un thread séparé par `_cp_compiler_versions` pour
+        chaque tâche de `compilation_job_list`.
+
+        Retourne
+        --------
+        Dict
+            {"compiled_entry": Optional[Dict], "messages": List[List[str]]}
+            où "compiled_entry" est l'entrée à ajouter à
+            `self._liste_fichiers["compiled"]` (ou None si rien n'a pu être
+            compilé), et "messages" la liste des messages d'erreur éventuels.
+        """
+        build_dir_path = output_dir / build_dir
+
+        # Si la version est déjà à jour (cf. _cp_determiner_versions_a_compiler),
+        # on évite de la recompiler.
+        if not fic.get("a_compiler", True):
+            compiled_entry = {
+                "path": build_dir_path / f"{fic['job_name']}.pdf",
+                "nature_fichier": fic["nature_fichier"],
+                "type_fichier": fic["type_fichier"],
+            }
+            messages: List[List[str]] = []
+            if compilation_options["verbose"] in ["normal", "all"]:
+                messages.append(
+                    [
+                        f"Compilation de la version {fic['affichage_nom_version']} "
+                        "ignorée (déjà à jour)",
+                        "info",
                     ]
-                else:
-                    cwd_dir = output_dir
-                    command = [
-                        compilateur,
-                        "-file-line-error",
-                        "-quiet",
-                        "-synctex=1",
-                        "-interaction=nonstopmode",
-                        f"-jobname={fic['job_name']}",
-                        f"-job-name={fic['job_name']}",
-                        f"-output-directory={build_dir_path}",
-                        f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
-                    ]
-                try:
-                    if not compilation_options["dry_run"]:
-                        subprocess.run(
-                            command,
-                            check=True,
-                            cwd=cwd_dir,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
+                )
+            return {"compiled_entry": compiled_entry, "messages": messages}
 
-                    # Ajout du nom de fichier à la liste des fichiers compilés
-                    if passe_compilation == 1:
-                        pdf_compiled_path = build_dir_path / f"{fic['job_name']}.pdf"
-                        self._liste_fichiers["compiled"].append(
-                            {
-                                "path": pdf_compiled_path,
-                                "nature_fichier": fic["nature_fichier"],
-                                "type_fichier": fic["type_fichier"],
-                            }
-                        )
+        nom_fichier_tex_path = output_dir / f"{fic['fichier_tex']}.tex"
 
-                    # Affichage de la confirmation si nécessaire
-                    if compilation_options["verbose"] in ["all"]:
-                        self.msg.affiche_messages(
-                            [["OK !", "success"]], "resultat_item"
-                        )
+        # Pour savoir si on doit faire une compilation bibtex
+        compile_bibtex = (
+            has_bibliographie
+            and index == 0
+            and compilation_options.get("mode") == "deep"
+        )
+        nombre_compilations_corrige = (
+            nombre_compilations + 2 if compile_bibtex else nombre_compilations
+        )
 
-                except subprocess.CalledProcessError as e:
-                    if compilation_options["verbose"] in ["normal"]:
-                        self.msg.affiche_messages(
-                            [
-                                [
-                                    "Echec de la compilation. Executer pyupstilatex "
-                                    "compile avec l'option --verbose all pour en "
-                                    "savoir plus.",
-                                    "error",
-                                ]
-                            ],
-                            "resultat_item",
-                        )
-                    elif compilation_options["verbose"] in ["all"]:
-                        message_erreur_compilation = [
-                            f"{e}",
+        compiled_entry: Optional[Dict] = None
+        messages: List[List[str]] = []
+
+        # Démarrage de la compilation
+        compilation_OK: bool = True
+        passe_compilation = 1
+        while compilation_OK and passe_compilation <= nombre_compilations_corrige:
+
+            if compile_bibtex and passe_compilation == 2:
+                cwd_dir = build_dir_path
+                command = [
+                    "bibtex",
+                    "-quiet",
+                    nom_fichier_tex_path.stem,
+                ]
+            else:
+                cwd_dir = output_dir
+                command = [
+                    compilateur,
+                    "-file-line-error",
+                    "-quiet",
+                    "-synctex=1",
+                    "-interaction=nonstopmode",
+                    f"-jobname={fic['job_name']}",
+                    f"-job-name={fic['job_name']}",
+                    f"-output-directory={build_dir_path}",
+                    f"\\def\\ChoixDeVersion{{{fic['option']}}}\\input{{{nom_fichier_tex_path.as_posix()}}}",
+                ]
+            try:
+                if not compilation_options["dry_run"]:
+                    subprocess.run(
+                        command,
+                        check=True,
+                        cwd=cwd_dir,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+
+                # Ajout du nom de fichier à la liste des fichiers compilés
+                if passe_compilation == 1:
+                    pdf_compiled_path = build_dir_path / f"{fic['job_name']}.pdf"
+                    compiled_entry = {
+                        "path": pdf_compiled_path,
+                        "nature_fichier": fic["nature_fichier"],
+                        "type_fichier": fic["type_fichier"],
+                    }
+
+            except subprocess.CalledProcessError as e:
+                if compilation_options["verbose"] in ["normal"]:
+                    messages.append(
+                        [
+                            "Echec de la compilation de la version "
+                            f"{fic['affichage_nom_version']}. Executer "
+                            "pyupstilatex compile avec l'option --verbose all "
+                            "pour en savoir plus.",
                             "error",
                         ]
-                        compilation_messages.append(message_erreur_compilation)
+                    )
+                elif compilation_options["verbose"] in ["all"]:
+                    messages.append(
+                        [f"{fic['affichage_nom_version']} : {e}", "error"]
+                    )
 
-                        # Afficher les erreurs de log
-                        log_path = build_dir_path / f"{fic['job_name']}.log"
-                        if log_path.exists():
-                            try:
-                                import re
+                    # Afficher les erreurs de log
+                    log_path = build_dir_path / f"{fic['job_name']}.log"
+                    if log_path.exists():
+                        try:
+                            import re
 
-                                log_content = log_path.read_text(
-                                    encoding="utf-8", errors="ignore"
-                                )
-                                lines = log_content.splitlines()
-                                error_lines = []
-                                for idx, line in enumerate(lines):
-                                    if line.startswith("!") or re.match(
-                                        r"^\S*\.?tex:\d+:", line
-                                    ):
-                                        error_lines.append(line)
-                                        # Ajouter la ligne suivante si elle commence
-                                        # par "l." (ex: "l.62 \pouet")
-                                        next_line = (
-                                            lines[idx + 1]
-                                            if idx + 1 < len(lines)
-                                            else ""
-                                        )
-                                        if next_line.startswith("l."):
-                                            error_lines.append(next_line)
-                                # Limiter à 10 entrées d'erreur
-                                for err_line in error_lines[:10]:
-                                    compilation_messages.append([err_line, "error"])
+                            log_content = log_path.read_text(
+                                encoding="utf-8", errors="ignore"
+                            )
+                            lines = log_content.splitlines()
+                            error_lines = []
+                            for idx, line in enumerate(lines):
+                                if line.startswith("!") or re.match(
+                                    r"^\S*\.?tex:\d+:", line
+                                ):
+                                    error_lines.append(line)
+                                    # Ajouter la ligne suivante si elle commence
+                                    # par "l." (ex: "l.62 \pouet")
+                                    next_line = (
+                                        lines[idx + 1] if idx + 1 < len(lines) else ""
+                                    )
+                                    if next_line.startswith("l."):
+                                        error_lines.append(next_line)
+                            # Limiter à 10 entrées d'erreur
+                            for err_line in error_lines[:10]:
+                                messages.append([err_line, "error"])
+                        except Exception:
+                            pass
 
-                                self.msg.affiche_messages(
-                                    compilation_messages, "resultat_item"
-                                )
+                compilation_OK = False
 
-                            except Exception:
-                                pass
+            # On prépare la prochaine passe de compilation si nécessaire
+            passe_compilation += 1
 
-                    compilation_OK = False
+        return {"compiled_entry": compiled_entry, "messages": messages}
 
-                # On prépare la prochaine passe de compilation si nécessaire
-                passe_compilation += 1
+    def _cp_post_compilation(
+        self, compilation_job_list: List[Dict]
+    ) -> tuple[Optional[str], List[List[str]]]:
+        """Vérifie le résultat global de la compilation (méthode interne).
 
-        # Conclusion de la phase de compilation
+        Retourne
+        --------
+        tuple[Optional[str], List[List[str]]]
+            (result, messages) où result vaut "success", "warning" ou "error".
+        """
         nb_fichiers_compiles = len(self._liste_fichiers["compiled"])
         nb_fichiers_a_compiler = len(compilation_job_list)
 

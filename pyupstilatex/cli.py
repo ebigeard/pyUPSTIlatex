@@ -345,6 +345,15 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
     help="Mode test: affiche les actions sans les exécuter.",
 )
 @click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help=(
+        "Force la (re)compilation de toutes les versions même si leur PDF "
+        "existe déjà et est à jour."
+    ),
+)
+@click.option(
     "--verbose",
     "-v",
     default="normal",
@@ -354,7 +363,7 @@ def liste_fichiers(ctx, path, exclude, show_full_path, filter_mode, compilabilit
     ),
 )
 @click.pass_context
-def compile(ctx, path, mode, dry_run, verbose):
+def compile(ctx, path, mode, dry_run, force, verbose):
     """Compile un fichier .tex ou tous les fichiers d'un dossier."""
 
     from pathlib import Path
@@ -478,6 +487,7 @@ def compile(ctx, path, mode, dry_run, verbose):
                         mode=mode,
                         verbose=compile_verbose,
                         dry_run=dry_run,
+                        force=force,
                     )
                     # Protéger contre un statut inattendu
                     if result in statut_compilation_fichiers:
@@ -530,7 +540,9 @@ def compile(ctx, path, mode, dry_run, verbose):
         compilation_unique = True
 
     if compilation_unique:
-        result, messages = doc.compile(mode=mode, verbose=verbose, dry_run=dry_run)
+        result, messages = doc.compile(
+            mode=mode, verbose=verbose, dry_run=dry_run, force=force
+        )
 
         # Message de conclusion
         msg.separateur1()

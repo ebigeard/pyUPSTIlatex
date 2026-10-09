@@ -34,8 +34,9 @@ upload = false                                  # Si on doit uploader les fichie
 upload_diaporama = false                        # Si on doit aussi uploader un diaporama
 creer_miniature = false                         # Si on doit créer une miniature (thumbnail) du document à partir de la première page du PDF généré
 hauteur_miniature = 600                         # Hauteur en pixels de la miniature créée (la largeur est ajustée automatiquement pour garder les proportions)
-query_webhook_apres_upload = false              # Si on doit faire une requête au webhook après l'upload pour informer le site de la disponibilité du document  
+query_webhook_apres_upload = false              # Si on doit faire une requête au webhook après l'upload pour informer le site de la disponibilité du document
 dossier_ftp = "/"                               # Dossier sur le FTP où uploader les fichiers (ex: "/S2I/PT/Cours/") - utilisé si upload = true et mode_local = false
+compilation_paralleles = 4                      # Nombre maximum de versions compilées simultanément lors de la compilation LaTeX
 
 #--------------------------------------------------------------------------------------
 # Paramètres de compilation LaTeX
